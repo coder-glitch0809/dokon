@@ -1,0 +1,14 @@
+{
+  "name": "zamon-market",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types src/server.ts",
+    "start": "node --experimental-strip-types src/server.ts",
+    "check": "node --check src/server.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

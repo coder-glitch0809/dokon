@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zamon Market</title>
+  <meta http-equiv="refresh" content="1; url=http://localhost:3104/">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: #17202a;
+      background:
+        linear-gradient(135deg, rgba(18, 110, 101, .28), transparent 34%),
+        linear-gradient(225deg, rgba(15, 95, 150, .32), transparent 36%),
+        linear-gradient(110deg, rgba(9, 35, 42, .88), rgba(18, 110, 101, .68), rgba(15, 95, 150, .72)),
+        url("https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1600&q=80") center/cover;
+    }
+    .card {
+      width: min(92vw, 520px);
+      background: rgba(255, 255, 255, .72);
+      border: 1px solid rgba(255,255,255,.62);
+      border-radius: 8px;
+      padding: 28px;
+      box-shadow: 0 14px 35px rgba(20, 28, 38, .18);
+      backdrop-filter: blur(22px) saturate(1.2);
+    }
+    h1 { margin: 0 0 10px; font-size: 30px; letter-spacing: 0; }
+    p { margin: 0 0 18px; color: #667085; line-height: 1.5; }
+    a {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #126e65, #0f5f96);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+    }
+    code {
+      background: #eef2f6;
+      padding: 2px 6px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Zamon Market</h1>
+    <p>Bu loyiha xavfsizlik va hisob-kitoblar uchun Node.js server orqali ishlaydi. Avval terminalda <code>npm run dev</code> ishga tushgan bo‘lishi kerak.</p>
+    <a href="http://localhost:3104/">Ilovani ochish</a>
+  </main>
+</body>
+</html>

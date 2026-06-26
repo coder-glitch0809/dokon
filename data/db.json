@@ -1,0 +1,136 @@
+{
+  "accounts": [
+    {
+      "id": "cash",
+      "name": "Asosiy kassa",
+      "type": "Kassa",
+      "number": "Do‘kon",
+      "balance": 4500000
+    },
+    {
+      "id": "uzcard",
+      "name": "Uzcard savdo",
+      "type": "Karta",
+      "number": "8600 **** 4412",
+      "balance": 2800000
+    },
+    {
+      "id": "bank",
+      "name": "Bank hisob raqam",
+      "type": "Bank hisob raqam",
+      "number": "2020 **** 7788",
+      "balance": 12000000
+    }
+  ],
+  "products": [
+    {
+      "id": "p1",
+      "name": "Shakar",
+      "category": "Oziq-ovqat",
+      "unit": "kg",
+      "qty": 39,
+      "cost": 12000,
+      "price": 14500,
+      "min": 10
+    },
+    {
+      "id": "p2",
+      "name": "Yog‘",
+      "category": "Oziq-ovqat",
+      "unit": "litr",
+      "qty": 24,
+      "cost": 18000,
+      "price": 22000,
+      "min": 8
+    },
+    {
+      "id": "flour",
+      "name": "Un",
+      "category": "Nonvoyxona",
+      "unit": "kg",
+      "qty": 350,
+      "cost": 5200,
+      "price": 6500,
+      "min": 80
+    }
+  ],
+  "breads": [
+    {
+      "id": "b1",
+      "name": "Buxanka non",
+      "qty": 85,
+      "price": 4000,
+      "flourUsed": 75,
+      "extraCost": 120000,
+      "produced": 120,
+      "costPerBread": 3100,
+      "date": "2026-06-17"
+    }
+  ],
+  "sales": [
+    {
+      "id": "s1",
+      "itemId": "b1",
+      "itemType": "bread",
+      "name": "Buxanka non",
+      "qty": 35,
+      "price": 4000,
+      "cost": 3100,
+      "account": "cash",
+      "date": "2026-06-17"
+    },
+    {
+      "id": "s2",
+      "itemId": "p1",
+      "itemType": "product",
+      "name": "Shakar",
+      "qty": 3,
+      "price": 14500,
+      "cost": 12000,
+      "account": "uzcard",
+      "date": "2026-06-17"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "e1",
+      "title": "Elektr to‘lovi",
+      "category": "Kommunal",
+      "amount": 260000,
+      "account": "bank",
+      "note": "Market va nonvoyxona",
+      "date": "2026-06-17"
+    }
+  ],
+  "purchases": [],
+  "workers": [
+    {
+      "id": "u_superadmin",
+      "name": "Superadmin",
+      "login": "Zamon",
+      "role": "superadmin",
+      "salary": 0,
+      "phone": "",
+      "passwordHash": "24af52f2259009b35be7f87234592314622d74ead96df45dc72b150b1df9f8b0",
+      "passwordSalt": "9f9c00b8a17b443b4f457b300afa8e2c"
+    }
+  ],
+  "archive": [
+    {
+      "id": "arc_superadmin_migration_1782378247747",
+      "date": "2026-06-25T09:04:07.747Z",
+      "type": "security",
+      "title": "Faqat Superadmin roli qoldirildi",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "login": "Zamon",
+        "role": "superadmin"
+      }
+    }
+  ],
+  "settings": {
+    "usdRate": 12600,
+    "usdRateDate": "2026-06-25"
+  }
+}
