@@ -25,6 +25,7 @@ declare module "node:fs/promises" {
   export function rename(oldPath: string, newPath: string): Promise<void>;
   export function mkdir(path: string, options?: { recursive?: boolean }): Promise<string | undefined>;
   export function stat(path: string): Promise<unknown>;
+  export function readdir(path: string): Promise<string[]>;
 }
 
 declare module "node:fs" {

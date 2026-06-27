@@ -508,6 +508,38 @@ tbody tr:hover {
 .alert-item span { color: var(--muted); font-size: 13px; }
 .alert-item.good { border-color: rgba(8,116,67,.32); }
 .alert-item.bad { border-color: rgba(180,35,24,.34); }
+.bar-list {
+  display: grid;
+  gap: 10px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 92px minmax(120px, 1fr) 120px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.bar-row div {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: rgba(125, 143, 161, .18);
+}
+
+.bar-row b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
+}
+
+.bar-row strong {
+  text-align: right;
+  color: var(--ink);
+}
 code {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;

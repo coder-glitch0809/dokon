@@ -8,6 +8,7 @@ Bu loyiha demo/prototip uchun Node.js + TypeScript server bilan ajratildi. Muhim
 - Ixtiyoriy `PASSWORD_PEPPER` server siri orqali hash himoyasi kuchaytiriladi.
 - Birinchi kirishda vaqtinchalik parolni almashtirish talab qilinadi.
 - Login sessiyasi `HttpOnly`, `SameSite=Strict` cookie orqali beriladi; production/HTTPS muhitida `Secure` flag ishlatiladi.
+- Sessiyalar 30 daqiqa faoliyatsizlikdan keyin serverda tugaydi; `SESSION_IDLE_MINUTES` orqali sozlanadi.
 - Ma'lumot yozadigan API endpointlarda `CSRF` token tekshiriladi.
 - Rollar serverda majburiy tekshiriladi: superadmin, admin, manager, cashier, baker.
 - `/api/state` foydalanuvchi roliga qarab ko'rishi mumkin bo'lgan ma'lumotlarni qaytaradi.
@@ -16,7 +17,10 @@ Bu loyiha demo/prototip uchun Node.js + TypeScript server bilan ajratildi. Muhim
 - Inputlar serverda tekshiriladi va uzunligi cheklanadi.
 - XSS xavfini kamaytirish uchun frontend HTML chiqarishda escape qiladi.
 - CSV export Excel formula injectiondan himoyalangan.
+- CSV export faqat superadmin, admin va manager rollari uchun ruxsat etilgan.
 - Audit log muhim amallarni `userId` bilan saqlaydi.
+- Login, logout, export, kirim, savdo, rasxod, ta'minotchi va to'lov amallari auditga yoziladi.
+- Lokal fayl rejimida kunlik backup `data/backups` ichida yaratiladi.
 - Security headerlar qo'yilgan: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
 - Path traversaldan himoya bor: server faqat `public` ichidagi fayllarni beradi.
 - `data/*` va `.env*` git/deployga kiritilmaydi.

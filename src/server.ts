@@ -1,5 +1,5 @@
 ﻿import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFile, writeFile, rename, mkdir, stat } from "node:fs/promises";
+import { readFile, writeFile, rename, mkdir, stat, readdir } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,9 +12,11 @@ type Bread = { id: string; name: string; qty: number; price: number; flourUsed: 
 type Sale = { id: string; itemId: string; itemType: "product" | "bread"; name: string; qty: number; price: number; cost: number; account: string; date: string };
 type Expense = { id: string; title: string; category: string; amount: number; account: string; note: string; date: string; originalAmount?: number; currency?: string; usdRate?: number };
 type Purchase = { id: string; name: string; category: string; unit: string; qty: number; cost: number; price: number; account: string; supplier: string; date: string; originalCost?: number; originalPrice?: number; currency?: string; usdRate?: number };
+type Supplier = { id: string; name: string; phone: string; note: string; balance: number; createdAt: string };
+type SupplierPayment = { id: string; supplierId: string; amount: number; account: string; note: string; date: string };
 type Worker = { id: string; name: string; login: string; role: Role; salary: number; phone: string; passwordHash: string; passwordSalt: string; mustChangePassword?: boolean };
 type ArchiveEntry = { id: string; date: string; type: string; title: string; amount: number; direction: "plus" | "minus" | "neutral"; payload: unknown; userId?: string };
-type Db = { accounts: Account[]; products: Product[]; breads: Bread[]; sales: Sale[]; expenses: Expense[]; purchases: Purchase[]; workers: Worker[]; archive: ArchiveEntry[]; settings: { usdRate: number; usdRateDate: string } };
+type Db = { accounts: Account[]; products: Product[]; breads: Bread[]; sales: Sale[]; expenses: Expense[]; purchases: Purchase[]; suppliers: Supplier[]; supplierPayments: SupplierPayment[]; workers: Worker[]; archive: ArchiveEntry[]; settings: { usdRate: number; usdRateDate: string; lastBackupDate?: string } };
 type Session = { id: string; userId: string; csrfToken: string; expiresAt: number };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +25,7 @@ const publicDir = path.join(rootDir, "public");
 const isVercel = process.env.VERCEL === "1";
 const dataDir = process.env.DATA_DIR || (isVercel ? "/tmp/zamon-market-data" : path.join(rootDir, "data"));
 const dbPath = path.join(dataDir, "db.json");
+const backupDir = path.join(dataDir, "backups");
 
 function loadEnvFile(filePath: string) {
   if (!existsSync(filePath)) return;
@@ -49,11 +52,12 @@ const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const loginFailures = new Map<string, { count: number; lockedUntil: number }>();
 let dbWriteQueue = Promise.resolve();
 let mutationQueue = Promise.resolve();
+const sessionTtlMs = Number(process.env.SESSION_IDLE_MINUTES || 30) * 60_000;
 
 const allowedViews: Record<Role, string[]> = {
-  superadmin: ["dashboard", "inventory", "sales", "bakery", "expenses", "accounts", "workers", "profile", "archive"],
-  admin: ["dashboard", "inventory", "sales", "bakery", "expenses", "accounts", "profile", "archive"],
-  manager: ["dashboard", "inventory", "sales", "expenses", "accounts", "profile", "archive"],
+  superadmin: ["dashboard", "inventory", "sales", "bakery", "expenses", "accounts", "suppliers", "analytics", "workers", "profile", "archive"],
+  admin: ["dashboard", "inventory", "sales", "bakery", "expenses", "accounts", "suppliers", "analytics", "profile", "archive"],
+  manager: ["dashboard", "inventory", "sales", "expenses", "accounts", "suppliers", "analytics", "profile", "archive"],
   cashier: ["dashboard", "sales", "profile"],
   baker: ["dashboard", "bakery", "inventory", "profile"]
 };
@@ -137,6 +141,10 @@ function seedDb(): Db {
       { id: "e1", title: "Elektr to'lovi", category: "Kommunal", amount: 260000, account: "bank", note: "Market va nonvoyxona", date: today() }
     ],
     purchases: [],
+    suppliers: [
+      { id: "sup_main", name: "Asosiy ta'minotchi", phone: "", note: "Demo ta'minotchi", balance: 0, createdAt: new Date().toISOString() }
+    ],
+    supplierPayments: [],
     archive: [],
     settings: { usdRate: 12600, usdRateDate: today() },
     workers: [seedWorker(admin.name, admin.login, admin.password, admin.role, admin.salary, false)]
@@ -152,6 +160,8 @@ async function loadDb(): Promise<Db> {
   }
   const db = JSON.parse(await readFile(dbPath, "utf8")) as Db;
   db.archive ||= [];
+  db.suppliers ||= [];
+  db.supplierPayments ||= [];
   db.settings ||= { usdRate: 12600, usdRateDate: today() };
   let migrated = false;
   for (const worker of db.workers) {
@@ -174,11 +184,32 @@ async function loadDb(): Promise<Db> {
 async function saveDb(db: Db) {
   dbWriteQueue = dbWriteQueue.catch(() => undefined).then(async () => {
     await mkdir(dataDir, { recursive: true });
+    await ensureDailyBackup(db);
     const tempPath = `${dbPath}.${process.pid}.${Date.now()}.tmp`;
     await writeFile(tempPath, JSON.stringify(db, null, 2), "utf8");
     await rename(tempPath, dbPath);
   });
   return dbWriteQueue;
+}
+
+async function ensureDailyBackup(db: Db) {
+  const day = today();
+  if (db.settings.lastBackupDate === day) return;
+  await mkdir(backupDir, { recursive: true });
+  const backupPath = path.join(backupDir, `zamon-market-${day}.json`);
+  if (!existsSync(backupPath)) {
+    await writeFile(backupPath, JSON.stringify({ createdAt: new Date().toISOString(), db }, null, 2), "utf8");
+  }
+  db.settings.lastBackupDate = day;
+}
+
+async function backupStatus() {
+  try {
+    const files = (await readdir(backupDir)).filter((file) => file.endsWith(".json")).sort().reverse();
+    return { count: files.length, latest: files[0] || null, storage: isVercel ? "temporary-vercel-tmp" : "local-file" };
+  } catch {
+    return { count: 0, latest: null, storage: isVercel ? "temporary-vercel-tmp" : "local-file" };
+  }
 }
 
 function publicWorker(worker: Worker) {
@@ -295,6 +326,7 @@ function findSession(req: IncomingMessage) {
     if (sid) sessions.delete(sid);
     return null;
   }
+  session.expiresAt = Date.now() + sessionTtlMs;
   return session;
 }
 
@@ -358,11 +390,14 @@ function visibleState(db: Db, user: Worker) {
     sales: canView(user, "sales") || canView(user, "dashboard") ? db.sales : [],
     expenses: canView(user, "expenses") || canView(user, "dashboard") ? db.expenses : [],
     purchases: canView(user, "inventory") || canView(user, "dashboard") ? db.purchases : [],
+    suppliers: canView(user, "suppliers") || canView(user, "inventory") ? db.suppliers : [],
+    supplierPayments: canView(user, "suppliers") ? db.supplierPayments : [],
     workers: canView(user, "workers") ? db.workers.map(publicWorker) : [],
     archive: canView(user, "archive") ? db.archive : [],
     settings: db.settings,
     allowedViews: views,
-    summary: summary(db)
+    summary: summary(db),
+    analytics: canView(user, "analytics") || canView(user, "dashboard") ? analytics(db) : null
   };
 }
 
@@ -415,7 +450,44 @@ function summary(db: Db) {
   const flour = db.products.find((item) => item.id === "flour" || item.name.toLowerCase() === "un");
   const lowStock = db.products.filter((item) => item.qty <= (item.min || 5));
   const negativeAccounts = db.accounts.filter((item) => item.balance < 0);
-  return { total, daily, monthly, balance, inventoryValue, breadStockValue, breadProducedToday, breadSoldToday, flour, lowStock, negativeAccounts };
+  const supplierDebt = db.suppliers.reduce((sum, item) => sum + Math.max(item.balance || 0, 0), 0);
+  return { total, daily, monthly, balance, inventoryValue, breadStockValue, breadProducedToday, breadSoldToday, flour, lowStock, negativeAccounts, supplierDebt };
+}
+
+function analytics(db: Db) {
+  const periodSales = (key: (date: string) => string) => {
+    const groups = new Map<string, number>();
+    for (const sale of db.sales) {
+      const group = key(sale.date);
+      groups.set(group, (groups.get(group) || 0) + sale.qty * sale.price);
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, revenue]) => ({ date, revenue }));
+  };
+  const productMap = new Map<string, { name: string; qty: number; revenue: number; profit: number }>();
+  for (const sale of db.sales) {
+    const item = productMap.get(sale.name) || { name: sale.name, qty: 0, revenue: 0, profit: 0 };
+    item.qty += sale.qty;
+    item.revenue += sale.qty * sale.price;
+    item.profit += sale.qty * (sale.price - sale.cost);
+    productMap.set(sale.name, item);
+  }
+  const products = [...productMap.values()];
+  return {
+    daily: periodSales((date) => date).slice(-30),
+    monthly: periodSales((date) => date.slice(0, 7)).slice(-12),
+    yearly: periodSales((date) => date.slice(0, 4)),
+    topProducts: products.slice().sort((a, b) => b.qty - a.qty).slice(0, 10),
+    slowProducts: db.products
+      .map((product) => ({ name: product.name, qty: products.find((item) => item.name === product.name)?.qty || 0, stock: product.qty }))
+      .sort((a, b) => a.qty - b.qty)
+      .slice(0, 10)
+  };
+}
+
+function supplier(db: Db, supplierId: string) {
+  const found = db.suppliers.find((item) => item.id === supplierId);
+  if (!found) throw httpError(400, "Ta'minotchi topilmadi");
+  return found;
 }
 
 async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
@@ -447,18 +519,28 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     }
 
     loginFailures.delete(login);
-    const session: Session = { id: id("s"), userId: user.id, csrfToken: id("csrf"), expiresAt: Date.now() + 8 * 60 * 60_000 };
+    archive(db, { type: "auth", title: `Tizimga kirildi: ${user.login}`, amount: 0, direction: "neutral", payload: { userId: user.id, login: user.login }, userId: user.id });
+    await saveDb(db);
+    const session: Session = { id: id("s"), userId: user.id, csrfToken: id("csrf"), expiresAt: Date.now() + sessionTtlMs };
     sessions.set(session.id, session);
     const secure = isProduction || isHttps(req) ? "; Secure" : "";
     send(res, 200, { ok: true, user: publicWorker(user), csrfToken: session.csrfToken }, {
-      "Set-Cookie": `sid=${encodeURIComponent(session.id)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${secure}`
+      "Set-Cookie": `sid=${encodeURIComponent(session.id)}; HttpOnly; SameSite=Strict; Path=/${secure}`
     });
     return;
   }
 
   if (url.pathname === "/api/logout" && req.method === "POST") {
     const session = findSession(req);
-    if (session) sessions.delete(session.id);
+    if (session) {
+      const db = await loadDb();
+      const user = db.workers.find((worker) => worker.id === session.userId);
+      if (user) {
+        archive(db, { type: "auth", title: `Tizimdan chiqildi: ${user.login}`, amount: 0, direction: "neutral", payload: { userId: user.id, login: user.login }, userId: user.id });
+        await saveDb(db);
+      }
+      sessions.delete(session.id);
+    }
     const secure = isProduction || isHttps(req) ? "; Secure" : "";
     return send(res, 200, { ok: true }, { "Set-Cookie": `sid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}` });
   }
@@ -466,7 +548,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   if (url.pathname === "/api/state" && req.method === "GET") {
     const { db, user } = await requireUser(req);
     await refreshUsdRate(db);
-    return send(res, 200, visibleState(db, user));
+    if (db.settings.lastBackupDate !== today()) await saveDb(db);
+    const backups = await backupStatus();
+    return send(res, 200, { ...visibleState(db, user), backups });
   }
 
   if (url.pathname === "/api/rate" && req.method === "GET") {
@@ -487,8 +571,10 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     const cost = moneyToUzs(originalCost, currency, usdRate);
     const price = moneyToUzs(originalPrice, currency, usdRate);
     const total = qty * cost;
-    const payFrom = account(db, cleanString(body.account));
-    assertBalance(payFrom, total);
+    const accountId = cleanString(body.account);
+    const isSupplierDebt = accountId === "supplier_debt";
+    const payFrom = isSupplierDebt ? null : account(db, accountId);
+    if (payFrom) assertBalance(payFrom, total);
 
     const name = cleanString(body.name);
     if (!name) throw httpError(400, "Mahsulot nomini kiriting");
@@ -506,8 +592,19 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     } else {
       db.products.push({ id: id("p"), name, category: cleanString(body.category), unit: cleanString(body.unit, 20) || "dona", qty, cost, price, min: positive(body.min || 5, "Minimum qoldiq"), currency, usdRate });
     }
-    payFrom.balance -= total;
-    const purchase = { id: id("buy"), name, category: cleanString(body.category), unit: cleanString(body.unit, 20), qty, cost, price, account: payFrom.id, supplier: cleanString(body.supplier), date: today(), originalCost, originalPrice, currency, usdRate };
+    if (payFrom) payFrom.balance -= total;
+    const supplierName = cleanString(body.supplier);
+    let supplierId = cleanString(body.supplierId);
+    if (!supplierId && supplierName) {
+      let foundSupplier = db.suppliers.find((item) => item.name.toLowerCase() === supplierName.toLowerCase());
+      if (!foundSupplier) {
+        foundSupplier = { id: id("sup"), name: supplierName, phone: "", note: "", balance: 0, createdAt: new Date().toISOString() };
+        db.suppliers.push(foundSupplier);
+      }
+      supplierId = foundSupplier.id;
+    }
+    if (isSupplierDebt && supplierId) supplier(db, supplierId).balance += total;
+    const purchase = { id: id("buy"), name, category: cleanString(body.category), unit: cleanString(body.unit, 20), qty, cost, price, account: payFrom?.id || "supplier_debt", supplier: supplierId || supplierName, date: today(), originalCost, originalPrice, currency, usdRate };
     db.purchases.push(purchase);
     audit(db, user, { type: "purchase", title: `Kirim: ${name}`, amount: total, direction: "minus", payload: purchase });
     await saveDb(db);
@@ -597,6 +694,35 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     return send(res, 201, { ok: true });
   }
 
+  if (url.pathname === "/api/suppliers" && req.method === "POST") {
+    const { db, user } = await requireUser(req, ["superadmin", "admin", "manager"]);
+    const body = await readJson(req) as Record<string, unknown>;
+    const name = cleanString(body.name);
+    if (!name) throw httpError(400, "Ta'minotchi nomini kiriting");
+    if (db.suppliers.some((item) => item.name.toLowerCase() === name.toLowerCase())) throw httpError(409, "Bu ta'minotchi bor");
+    const item = { id: id("sup"), name, phone: cleanString(body.phone, 40), note: cleanString(body.note, 300), balance: positive(body.balance || 0, "Qarz"), createdAt: new Date().toISOString() };
+    db.suppliers.push(item);
+    audit(db, user, { type: "supplier", title: `Ta'minotchi qo'shildi: ${item.name}`, amount: item.balance, direction: "neutral", payload: item });
+    await saveDb(db);
+    return send(res, 201, { ok: true });
+  }
+
+  if (url.pathname === "/api/supplier-payments" && req.method === "POST") {
+    const { db, user } = await requireUser(req, ["superadmin", "admin", "manager"]);
+    const body = await readJson(req) as Record<string, unknown>;
+    const item = supplier(db, cleanString(body.supplierId));
+    const amount = positive(body.amount, "Summa", 1);
+    const payFrom = account(db, cleanString(body.account));
+    assertBalance(payFrom, amount);
+    payFrom.balance -= amount;
+    item.balance -= amount;
+    const payment = { id: id("spay"), supplierId: item.id, amount, account: payFrom.id, note: cleanString(body.note, 300), date: today() };
+    db.supplierPayments.push(payment);
+    audit(db, user, { type: "supplier_payment", title: `Ta'minotchi to'lovi: ${item.name}`, amount, direction: "minus", payload: payment });
+    await saveDb(db);
+    return send(res, 201, { ok: true });
+  }
+
   if (url.pathname === "/api/workers" && req.method === "POST") {
     const { db, user } = await requireUser(req, ["superadmin"]);
     requirePasswordReady(user);
@@ -634,7 +760,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
   }
 
   if (url.pathname === "/api/export" && req.method === "GET") {
-    const { db } = await requireUser(req);
+    const { db, user } = await requireUser(req, ["superadmin", "admin", "manager"]);
     const rows = [
       ["Bo'lim", "Nomi", "Miqdor/Summa", "Sana"],
       ...db.sales.map((s) => ["Savdo", s.name, String(s.qty * s.price), s.date]),
@@ -643,6 +769,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       ...db.breads.map((b) => ["Non", b.name, String(b.produced), b.date])
     ];
     const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
+    audit(db, user, { type: "export", title: "CSV hisobot yuklandi", amount: rows.length - 1, direction: "neutral", payload: { rows: rows.length - 1 } });
+    await saveDb(db);
     return send(res, 200, csv, {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="zamon-market-${today()}.csv"`

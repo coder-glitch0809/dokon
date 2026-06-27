@@ -25,6 +25,7 @@ Yangi `data/db.json` yaratilganda boshlang'ich admin login/paroli koddan emas, `
 INITIAL_ADMIN_LOGIN=admin
 INITIAL_ADMIN_PASSWORD=uzun-va-maxfiy-parol
 PASSWORD_PEPPER=random-server-secret
+SESSION_IDLE_MINUTES=30
 ```
 
 Production muhitida `INITIAL_ADMIN_PASSWORD` majburiy. Developmentda parol berilmasa, server vaqtinchalik parol generatsiya qilib terminalga chiqaradi. Birinchi kirishda parolni almashtirish talab qilinadi.
@@ -36,4 +37,5 @@ Production muhitida `INITIAL_ADMIN_PASSWORD` majburiy. Developmentda parol beril
 - `public/app.js` - frontend logika
 - `src/server.ts` - Node.js + TypeScript backend va xavfsizlik
 - `data/db.json` - lokal runtime ma'lumotlar bazasi, git/deployga kiritilmaydi
+- `data/backups` - lokal kunlik backup fayllari, git/deployga kiritilmaydi
 - `SECURITY.md` - xavfsizlik bo'yicha izohlar

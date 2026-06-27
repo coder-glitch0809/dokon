@@ -8,6 +8,8 @@ const navItems = [
   ["bakery", "Nonvoyxona", "Un, qop, non ishlab chiqarish va sotuv."],
   ["expenses", "Rasxodlar", "Minus harakatlar va ochilish xarajatlari."],
   ["accounts", "Karta va hisob", "Kassa, karta va bank qoldiqlari."],
+  ["suppliers", "Ta'minotchilar", "Yetkazib beruvchilar, qarz va to'lovlar."],
+  ["analytics", "Analitika", "Savdo trendi va mahsulot reytinglari."],
   ["workers", "Ishchilar", "Login, parol va rollar."],
   ["profile", "Profil", "Parol va xavfsizlik."],
   ["archive", "Arxiv", "Audit va saqlangan tarix."]
@@ -25,6 +27,8 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "
 const track = (eventName, params = {}) => {
   if (typeof window.zamonLogEvent === "function") window.zamonLogEvent(eventName, params);
 };
+const idleMs = 30 * 60 * 1000;
+let idleTimer = null;
 
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -62,8 +66,40 @@ async function refresh() {
   state = await api("/api/state");
   $("loginScreen").style.display = "none";
   $("app").style.display = "grid";
+  resetIdleTimer();
+  notifyLowStock();
   activeView = state.allowedViews.includes(activeView) ? activeView : state.allowedViews[0];
   showView(activeView);
+}
+
+async function autoLogout() {
+  if (!session?.user) return;
+  try {
+    await api("/api/logout", { method: "POST", body: "{}" });
+  } catch {}
+  session = null;
+  state = null;
+  alert("Faoliyatsizlik sabab sessiya tugadi.");
+  await refresh();
+}
+
+function resetIdleTimer() {
+  clearTimeout(idleTimer);
+  if (session?.user) idleTimer = setTimeout(autoLogout, idleMs);
+}
+
+function notifyLowStock() {
+  const low = state?.summary?.lowStock || [];
+  if (!low.length || !("Notification" in window)) return;
+  const key = `zamonLowStock:${low.map((p) => `${p.id}:${p.qty}`).join("|")}`;
+  if (sessionStorage.getItem(key)) return;
+  const text = low.slice(0, 3).map((p) => `${p.name}: ${fmtQty(p.qty, p.unit)}`).join(", ");
+  const send = () => {
+    new Notification("Kam qolgan tovar", { body: text });
+    sessionStorage.setItem(key, "1");
+  };
+  if (Notification.permission === "granted") send();
+  else if (Notification.permission !== "denied") Notification.requestPermission().then((permission) => { if (permission === "granted") send(); });
 }
 
 function table(el, headers, rows) {
@@ -123,16 +159,22 @@ function render() {
   renderBakery();
   renderExpenses();
   renderAccounts();
+  renderSuppliers();
+  renderAnalytics();
   renderWorkers();
   renderArchive();
   renderSecurity();
   $("userPill").textContent = `${session.user.name} · ${session.user.role}`;
   $("ratePill").textContent = `USD ${fmtMoney(state.settings.usdRate)} · ${state.settings.usdRateDate}`;
+  $("exportBtn").style.display = state.allowedViews.includes("analytics") || state.allowedViews.includes("archive") ? "inline-flex" : "none";
 }
 
 function renderSelects() {
   const accountOptions = state.accounts.map((a) => `<option value="${esc(a.id)}">${esc(a.name)} (${fmtMoney(a.balance)})</option>`).join("");
   document.querySelectorAll("[data-account-select]").forEach((el) => { el.innerHTML = accountOptions; });
+  document.querySelectorAll("[data-purchase-account-select]").forEach((el) => { el.innerHTML = `<option value="supplier_debt">Ta'minotchi qarzi</option>${accountOptions}`; });
+  const supplierOptions = state.suppliers.map((s) => `<option value="${esc(s.id)}">${esc(s.name)} (${fmtMoney(s.balance)})</option>`).join("");
+  document.querySelectorAll("[data-supplier-select]").forEach((el) => { el.innerHTML = supplierOptions || `<option value="">Ta'minotchi yo'q</option>`; });
   document.querySelectorAll("[data-usd-rate]").forEach((el) => { if (!el.value) el.value = state.settings.usdRate; });
   const products = state.products.filter((p) => p.qty > 0).map((p) => `<option value="product:${esc(p.id)}">${esc(p.name)} - ${fmtQty(p.qty, p.unit)}</option>`);
   const breads = state.breads.filter((b) => b.qty > 0).map((b) => `<option value="bread:${esc(b.id)}">${esc(b.name)} - ${fmtQty(b.qty, "dona")}</option>`);
@@ -153,7 +195,8 @@ function renderDashboard() {
     metricCard("Bugungi savdo", fmtMoney(s.daily.revenue), "Plus kirim"),
     metricCard("Bugungi rasxod", fmtMoney(s.daily.expense), "Minus chiqim", "bad"),
     metricCard("Bugun non yopildi", fmtQty(s.breadProducedToday, "dona"), `Sotildi: ${fmtQty(s.breadSoldToday, "dona")}`),
-    metricCard("Un qoldig'i", s.flour ? fmtQty(s.flour.qty, s.flour.unit) : "Yo'q", s.flour ? `Minimum: ${fmtQty(s.flour.min, s.flour.unit)}` : "Omborga Un kiriting", s.flour && s.flour.qty <= s.flour.min ? "bad" : "")
+    metricCard("Un qoldig'i", s.flour ? fmtQty(s.flour.qty, s.flour.unit) : "Yo'q", s.flour ? `Minimum: ${fmtQty(s.flour.min, s.flour.unit)}` : "Omborga Un kiriting", s.flour && s.flour.qty <= s.flour.min ? "bad" : ""),
+    metricCard("Ta'minotchi qarzi", fmtMoney(s.supplierDebt || 0), "Qarz/to'lov nazorati", s.supplierDebt > 0 ? "warn" : "good")
   ].join("");
 
   table($("periodTable"), ["Davr", "Savdo", "Tannarx", "Yalpi foyda", "Rasxod", "Sof natija"], [
@@ -165,6 +208,7 @@ function renderDashboard() {
   const alerts = [
     ...s.lowStock.map((p) => ({ tone: "bad", title: `${p.name} kam qoldi`, text: `Qoldiq: ${fmtQty(p.qty, p.unit)} · minimum: ${fmtQty(p.min, p.unit)}` })),
     ...s.negativeAccounts.map((a) => ({ tone: "bad", title: `${a.name} minusda`, text: fmtMoney(a.balance) })),
+    ...(state.backups?.latest ? [{ tone: "good", title: "Backup tayyor", text: `${state.backups.latest} · ${state.backups.storage}` }] : [{ tone: "bad", title: "Backup hali yo'q", text: "Birinchi yozish amalidan keyin yaratiladi." }]),
     ...(s.total.netProfit < 0 ? [{ tone: "bad", title: "Umumiy natija minusda", text: fmtMoney(s.total.netProfit) }] : []),
     ...(s.lowStock.length === 0 && s.negativeAccounts.length === 0 ? [{ tone: "good", title: "Nazorat holati yaxshi", text: "Minus balans va kritik qoldiq topilmadi." }] : [])
   ];
@@ -211,6 +255,24 @@ function renderExpenses() {
 
 function renderAccounts() {
   table($("accountsTable"), ["Nomi", "Turi", "Raqam", "Balans"], state.accounts.map((a) => [esc(a.name), esc(a.type), esc(a.number || "-"), `<span class="${a.balance < 0 ? "neg" : "pos"}">${fmtMoney(a.balance)}</span>`]));
+}
+
+function renderSuppliers() {
+  table($("suppliersTable"), ["Nomi", "Telefon", "Qarz", "Izoh"], state.suppliers.map((s) => [esc(s.name), esc(s.phone || "-"), `<span class="${s.balance > 0 ? "neg" : "pos"}">${fmtMoney(s.balance)}</span>`, esc(s.note || "-")]));
+  table($("supplierPaymentsTable"), ["Sana", "Ta'minotchi", "Summa", "Hisob", "Izoh"], state.supplierPayments.slice().reverse().map((p) => {
+    const sup = state.suppliers.find((s) => s.id === p.supplierId);
+    return [esc(p.date), esc(sup?.name || "Noma'lum"), `<span class="neg">${fmtMoney(p.amount)}</span>`, esc(accountName(p.account)), esc(p.note || "-")];
+  }));
+}
+
+function renderAnalytics() {
+  const data = state.analytics;
+  if (!data) return;
+  const maxDaily = Math.max(...data.daily.map((x) => x.revenue), 1);
+  $("salesBars").innerHTML = data.daily.map((x) => `<div class="bar-row"><span>${esc(x.date)}</span><div><b style="width:${Math.max(4, (x.revenue / maxDaily) * 100)}%"></b></div><strong>${fmtMoney(x.revenue)}</strong></div>`).join("");
+  table($("topProductsTable"), ["Mahsulot", "Sotildi", "Tushum", "Foyda"], data.topProducts.map((p) => [esc(p.name), fmtQty(p.qty), fmtMoney(p.revenue), `<span class="${p.profit < 0 ? "neg" : "pos"}">${fmtMoney(p.profit)}</span>`]));
+  table($("slowProductsTable"), ["Mahsulot", "Sotildi", "Qoldiq"], data.slowProducts.map((p) => [esc(p.name), fmtQty(p.qty), fmtQty(p.stock)]));
+  table($("monthlySalesTable"), ["Oy", "Tushum"], data.monthly.map((x) => [esc(x.date), fmtMoney(x.revenue)]));
 }
 
 function renderWorkers() {
@@ -293,8 +355,14 @@ $("saleForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/a
 $("bakeryForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/bakery", e.target); });
 $("expenseForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/expenses", e.target); });
 $("accountForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/accounts", e.target); });
+$("supplierForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/suppliers", e.target); });
+$("supplierPaymentForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/supplier-payments", e.target); });
 $("workerForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/workers", e.target); });
 $("passwordForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/profile/password", e.target); });
+
+["click", "keydown", "mousemove", "touchstart"].forEach((eventName) => {
+  document.addEventListener(eventName, resetIdleTimer, { passive: true });
+});
 
 document.addEventListener("change", (event) => {
   if (event.target.matches("[data-currency-select]")) {

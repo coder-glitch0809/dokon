@@ -118,6 +118,19 @@
   ],
   "archive": [
     {
+      "id": "arc_1c63b5d6b57bfb208c2a",
+      "date": "2026-06-27T05:53:36.748Z",
+      "type": "auth",
+      "title": "Tizimga kirildi: Zamon",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "userId": "u_superadmin",
+        "login": "Zamon"
+      },
+      "userId": "u_superadmin"
+    },
+    {
       "id": "arc_superadmin_migration_1782378247747",
       "date": "2026-06-25T09:04:07.747Z",
       "type": "security",
@@ -132,6 +145,9 @@
   ],
   "settings": {
     "usdRate": 12013.52,
-    "usdRateDate": "2026-06-27"
-  }
+    "usdRateDate": "2026-06-27",
+    "lastBackupDate": "2026-06-27"
+  },
+  "suppliers": [],
+  "supplierPayments": []
 }

@@ -109,8 +109,9 @@
               <div class="field"><label>Sotuv narxi</label><input name="price" type="number" min="0" step="100" required></div>
               <div class="field"><label>Valyuta</label><select name="currency" data-currency-select><option value="UZS">UZS</option><option value="USD">USD</option></select></div>
               <div class="field"><label>USD kursi</label><input name="usdRate" data-usd-rate type="number" min="1" step="0.01"></div>
-              <div class="field"><label>To'lov manbasi</label><select name="account" data-account-select></select></div>
-              <div class="field"><label>Yetkazuvchi</label><input name="supplier"></div>
+              <div class="field"><label>To'lov manbasi</label><select name="account" data-purchase-account-select></select></div>
+              <div class="field"><label>Ta'minotchi</label><select name="supplierId" data-supplier-select></select></div>
+              <div class="field"><label>Yangi ta'minotchi</label><input name="supplier"></div>
               <div class="field"><label>Minimum qoldiq</label><input name="min" type="number" min="0" step="0.001" value="5"></div>
             </div>
             <button class="primary-btn" type="submit">Kirim qo'shish</button>
@@ -202,6 +203,64 @@
           <div class="card">
             <div class="card-pad section-head"><div><h3>Balanslar</h3><p>Har bir hisobda qancha qolgan.</p></div></div>
             <div class="table-wrap"><table id="accountsTable"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="suppliersView">
+        <div class="grid two-col">
+          <form class="card card-pad" id="supplierForm">
+            <div class="section-head"><div><h3>Ta'minotchi qo'shish</h3><p>Yetkazib beruvchi va boshlang'ich qarz.</p></div></div>
+            <div class="form-grid">
+              <div class="field"><label>Nomi</label><input name="name" required></div>
+              <div class="field"><label>Telefon</label><input name="phone"></div>
+              <div class="field"><label>Boshlang'ich qarz</label><input name="balance" type="number" min="0" step="1000" value="0"></div>
+              <div class="field full"><label>Izoh</label><textarea name="note"></textarea></div>
+            </div>
+            <button class="primary-btn" type="submit">Ta'minotchi qo'shish</button>
+          </form>
+          <form class="card card-pad" id="supplierPaymentForm">
+            <div class="section-head"><div><h3>Ta'minotchiga to'lov</h3><p>Qarz kamayadi, hisobdan pul yechiladi.</p></div></div>
+            <div class="form-grid">
+              <div class="field full"><label>Ta'minotchi</label><select name="supplierId" data-supplier-select></select></div>
+              <div class="field"><label>Summa</label><input name="amount" type="number" min="1" step="1000" required></div>
+              <div class="field"><label>Hisob</label><select name="account" data-account-select></select></div>
+              <div class="field full"><label>Izoh</label><input name="note"></div>
+            </div>
+            <button class="primary-btn" type="submit">To'lovni saqlash</button>
+          </form>
+        </div>
+        <div class="grid two-col gap-top">
+          <div class="card">
+            <div class="card-pad section-head"><div><h3>Ta'minotchilar</h3><p>Qarz va kontaktlar.</p></div></div>
+            <div class="table-wrap"><table id="suppliersTable"></table></div>
+          </div>
+          <div class="card">
+            <div class="card-pad section-head"><div><h3>To'lovlar tarixi</h3><p>Ta'minotchilarga qilingan to'lovlar.</p></div></div>
+            <div class="table-wrap"><table id="supplierPaymentsTable"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="analyticsView">
+        <div class="grid two-col">
+          <div class="card card-pad">
+            <div class="section-head"><div><h3>Kunlik savdo grafigi</h3><p>Oxirgi 30 kun tushumi.</p></div></div>
+            <div class="bar-list" id="salesBars"></div>
+          </div>
+          <div class="card">
+            <div class="card-pad section-head"><div><h3>Oylik savdo</h3><p>Oxirgi 12 oy tushumi.</p></div></div>
+            <div class="table-wrap"><table id="monthlySalesTable"></table></div>
+          </div>
+        </div>
+        <div class="grid two-col gap-top">
+          <div class="card">
+            <div class="card-pad section-head"><div><h3>Eng ko'p sotilganlar</h3><p>Miqdor va foyda bo'yicha.</p></div></div>
+            <div class="table-wrap"><table id="topProductsTable"></table></div>
+          </div>
+          <div class="card">
+            <div class="card-pad section-head"><div><h3>Kam sotilganlar</h3><p>Sotuv sust mahsulotlar.</p></div></div>
+            <div class="table-wrap"><table id="slowProductsTable"></table></div>
           </div>
         </div>
       </section>
