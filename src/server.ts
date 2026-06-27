@@ -20,7 +20,8 @@ type Session = { id: string; userId: string; csrfToken: string; expiresAt: numbe
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const publicDir = path.join(rootDir, "public");
-const dataDir = path.join(rootDir, "data");
+const isVercel = process.env.VERCEL === "1";
+const dataDir = process.env.DATA_DIR || (isVercel ? "/tmp/zamon-market-data" : path.join(rootDir, "data"));
 const dbPath = path.join(dataDir, "db.json");
 
 function loadEnvFile(filePath: string) {
@@ -668,7 +669,7 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse, url: URL) 
   send(res, 200, await readFile(filePath), { "Content-Type": type });
 }
 
-const server = createServer(async (req, res) => {
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
   try {
     corsHeaders(req, res);
     if (req.method === "OPTIONS") return send(res, 204, "");
@@ -679,9 +680,12 @@ const server = createServer(async (req, res) => {
     const err = error as Error & { status?: number };
     send(res, err.status || 500, { error: err.status ? err.message : "Server xatosi" });
   }
-});
+}
 
-server.listen(port, () => {
-  console.log(`Zamon Market: http://localhost:${port}`);
-});
+if (!isVercel) {
+  const server = createServer(handler);
+  server.listen(port, () => {
+    console.log(`Zamon Market: http://localhost:${port}`);
+  });
+}
 
