@@ -4,105 +4,72 @@
       "id": "cash",
       "name": "Asosiy kassa",
       "type": "Kassa",
-      "number": "Do‘kon",
-      "balance": 4500000
+      "number": "DoвЂkon",
+      "balance": 100000
     },
     {
       "id": "uzcard",
       "name": "Uzcard savdo",
       "type": "Karta",
       "number": "8600 **** 4412",
-      "balance": 2800000
+      "balance": 0
     },
     {
       "id": "bank",
       "name": "Bank hisob raqam",
       "type": "Bank hisob raqam",
       "number": "2020 **** 7788",
-      "balance": 12000000
+      "balance": 0
     }
   ],
   "products": [
     {
-      "id": "p1",
-      "name": "Shakar",
+      "id": "p_77cd5b354ac1eff67540",
+      "name": "Non",
       "category": "Oziq-ovqat",
-      "unit": "kg",
-      "qty": 39,
-      "cost": 12000,
-      "price": 14500,
-      "min": 10
-    },
-    {
-      "id": "p2",
-      "name": "Yog‘",
-      "category": "Oziq-ovqat",
-      "unit": "litr",
-      "qty": 24,
-      "cost": 18000,
-      "price": 22000,
-      "min": 8
-    },
-    {
-      "id": "flour",
-      "name": "Un",
-      "category": "Nonvoyxona",
-      "unit": "kg",
-      "qty": 350,
-      "cost": 5200,
-      "price": 6500,
-      "min": 80
+      "unit": "dona",
+      "qty": 32,
+      "cost": 0,
+      "price": 5000,
+      "min": 5,
+      "barcode": "3131313",
+      "currency": "UZS",
+      "usdRate": 12013.52
     }
   ],
-  "breads": [
-    {
-      "id": "b1",
-      "name": "Buxanka non",
-      "qty": 85,
-      "price": 4000,
-      "flourUsed": 75,
-      "extraCost": 120000,
-      "produced": 120,
-      "costPerBread": 3100,
-      "date": "2026-06-17"
-    }
-  ],
+  "breads": [],
   "sales": [
     {
-      "id": "s1",
-      "itemId": "b1",
-      "itemType": "bread",
-      "name": "Buxanka non",
-      "qty": 35,
-      "price": 4000,
-      "cost": 3100,
-      "account": "cash",
-      "date": "2026-06-17"
-    },
-    {
-      "id": "s2",
-      "itemId": "p1",
+      "id": "sale_9b4c9962608659274b16",
+      "itemId": "p_77cd5b354ac1eff67540",
       "itemType": "product",
-      "name": "Shakar",
-      "qty": 3,
-      "price": 14500,
-      "cost": 12000,
-      "account": "uzcard",
-      "date": "2026-06-17"
+      "name": "Non",
+      "qty": 20,
+      "price": 5000,
+      "cost": 0,
+      "account": "cash",
+      "date": "2026-06-27"
     }
   ],
-  "expenses": [
+  "expenses": [],
+  "purchases": [
     {
-      "id": "e1",
-      "title": "Elektr to‘lovi",
-      "category": "Kommunal",
-      "amount": 260000,
-      "account": "bank",
-      "note": "Market va nonvoyxona",
-      "date": "2026-06-17"
+      "id": "buy_9e07b9fe55e647800111",
+      "name": "Non",
+      "category": "Oziq-ovqat",
+      "unit": "dona",
+      "qty": 52,
+      "cost": 0,
+      "price": 5000,
+      "account": "supplier_debt",
+      "supplier": "",
+      "date": "2026-06-27",
+      "originalCost": 0,
+      "originalPrice": 5000,
+      "currency": "UZS",
+      "usdRate": 12013.52
     }
   ],
-  "purchases": [],
   "workers": [
     {
       "id": "u_superadmin",
@@ -114,9 +81,161 @@
       "passwordHash": "4b51680ac97f1d1381074f0e87af3cec1dc7048f1663fccf1cc883fe58d8bff4",
       "passwordSalt": "aacdd6efa7fc1b0240e56065b1d27b04",
       "mustChangePassword": true
+    },
+    {
+      "id": "u_541372b2ab390140a7f3",
+      "name": "admin",
+      "login": "admin",
+      "role": "baker",
+      "salary": 1000000,
+      "phone": "+998900000000",
+      "passwordHash": "bac6c1f10c4d3c9edb4f4315ed12e241e138e23aa0eea84cd8498dd2d00dfc88",
+      "passwordSalt": "9e43ffafdd9afe87141069bbe5352ca6",
+      "mustChangePassword": false
     }
   ],
   "archive": [
+    {
+      "id": "arc_fc768dbaee207503d7ca",
+      "date": "2026-06-27T07:10:01.594Z",
+      "type": "sale",
+      "title": "Savdo: Non",
+      "amount": 100000,
+      "direction": "plus",
+      "payload": {
+        "id": "sale_9b4c9962608659274b16",
+        "itemId": "p_77cd5b354ac1eff67540",
+        "itemType": "product",
+        "name": "Non",
+        "qty": 20,
+        "price": 5000,
+        "cost": 0,
+        "account": "cash",
+        "date": "2026-06-27"
+      },
+      "userId": "u_superadmin"
+    },
+    {
+      "id": "arc_d45baf8cee73715fb0a3",
+      "date": "2026-06-27T07:08:56.261Z",
+      "type": "purchase",
+      "title": "Kirim: Non",
+      "amount": 0,
+      "direction": "minus",
+      "payload": {
+        "id": "buy_9e07b9fe55e647800111",
+        "name": "Non",
+        "category": "Oziq-ovqat",
+        "unit": "dona",
+        "qty": 52,
+        "cost": 0,
+        "price": 5000,
+        "account": "supplier_debt",
+        "supplier": "",
+        "date": "2026-06-27",
+        "originalCost": 0,
+        "originalPrice": 5000,
+        "currency": "UZS",
+        "usdRate": 12013.52
+      },
+      "userId": "u_superadmin"
+    },
+    {
+      "id": "arc_3779d4fdd849f8b83fb1",
+      "date": "2026-06-27T07:07:42.796Z",
+      "type": "auth",
+      "title": "Tizimga kirildi: Zamon",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "userId": "u_superadmin",
+        "login": "Zamon"
+      },
+      "userId": "u_superadmin"
+    },
+    {
+      "id": "arc_bdb1f49884ad4bc6cb72",
+      "date": "2026-06-27T07:07:21.215Z",
+      "type": "auth",
+      "title": "Tizimdan chiqildi: admin",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "userId": "u_541372b2ab390140a7f3",
+        "login": "admin"
+      },
+      "userId": "u_541372b2ab390140a7f3"
+    },
+    {
+      "id": "arc_3667443b6375e714c25a",
+      "date": "2026-06-27T07:07:06.828Z",
+      "type": "auth",
+      "title": "Tizimga kirildi: admin",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "userId": "u_541372b2ab390140a7f3",
+        "login": "admin"
+      },
+      "userId": "u_541372b2ab390140a7f3"
+    },
+    {
+      "id": "arc_1b98a734ae6815939cc5",
+      "date": "2026-06-27T06:12:17.303Z",
+      "type": "auth",
+      "title": "Tizimga kirildi: admin",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "userId": "u_541372b2ab390140a7f3",
+        "login": "admin"
+      },
+      "userId": "u_541372b2ab390140a7f3"
+    },
+    {
+      "id": "arc_79e3238de9086a82c4b0",
+      "date": "2026-06-27T06:12:10.103Z",
+      "type": "auth",
+      "title": "Tizimdan chiqildi: Zamon",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "userId": "u_superadmin",
+        "login": "Zamon"
+      },
+      "userId": "u_superadmin"
+    },
+    {
+      "id": "arc_21f0afe8f477081e17d9",
+      "date": "2026-06-27T06:12:02.078Z",
+      "type": "worker",
+      "title": "Ishchi qo'shildi: admin",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "id": "u_541372b2ab390140a7f3",
+        "name": "admin",
+        "login": "admin",
+        "role": "baker",
+        "salary": 1000000,
+        "phone": "+998900000000",
+        "mustChangePassword": false
+      },
+      "userId": "u_superadmin"
+    },
+    {
+      "id": "arc_4703523a10ecb201fc1e",
+      "date": "2026-06-27T06:06:37.811Z",
+      "type": "auth",
+      "title": "Tizimga kirildi: Zamon",
+      "amount": 0,
+      "direction": "neutral",
+      "payload": {
+        "userId": "u_superadmin",
+        "login": "Zamon"
+      },
+      "userId": "u_superadmin"
+    },
     {
       "id": "arc_1c63b5d6b57bfb208c2a",
       "date": "2026-06-27T05:53:36.748Z",

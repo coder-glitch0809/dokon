@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zamon Market Scan</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/scan.js"></script>
+</head>
+<body>
+  <main class="scan-page">
+    <section class="scan-shell">
+      <div class="scan-head">
+        <div>
+          <div class="brand-mark scan-mark">ZM</div>
+          <h1>Barcode skaner</h1>
+          <p>QR yoki shtrix-kodni kameraga tuting.</p>
+        </div>
+        <a class="ghost-btn" href="/">Panel</a>
+      </div>
+
+      <div class="scanner-card">
+        <video id="scanVideo" autoplay muted playsinline></video>
+        <div class="scan-frame"></div>
+      </div>
+
+      <div class="card card-pad gap-top-small">
+        <div class="form-grid">
+          <div class="field full">
+            <label>Barcode / QR kod</label>
+            <input id="manualCode" autocomplete="off" placeholder="Kodni qo'lda kiriting">
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="primary-btn" id="startBtn" type="button">Kamerani ochish</button>
+          <button class="ghost-btn" id="checkBtn" type="button">Tekshirish</button>
+        </div>
+        <p class="hint" id="scanStatus">Kamera uchun ruxsat bering.</p>
+      </div>
+
+      <section class="card card-pad gap-top-small" id="resultCard" hidden>
+        <div class="section-head"><div><h3 id="resultTitle">Natija</h3><p id="resultText"></p></div></div>
+      </section>
+
+      <form class="card card-pad gap-top-small" id="newProductForm" hidden>
+        <div class="section-head"><div><h3>Yangi tovar qo'shish</h3><p>Barcode topilmadi, mahsulot ma'lumotlarini kiriting.</p></div></div>
+        <input name="barcode" id="barcodeField" type="hidden">
+        <div class="form-grid">
+          <div class="field"><label>Mahsulot</label><input name="name" required></div>
+          <div class="field"><label>Kategoriya</label><input name="category" value="Barcode"></div>
+          <div class="field"><label>Miqdor</label><input name="qty" type="number" min="0" step="0.001" value="0"></div>
+          <div class="field"><label>O'lchov</label><select name="unit"><option>dona</option><option>kg</option><option>litr</option><option>qop</option></select></div>
+          <div class="field"><label>Tannarx</label><input name="cost" type="number" min="0" step="100" value="0"></div>
+          <div class="field"><label>Sotuv narxi</label><input name="price" type="number" min="0" step="100" value="0"></div>
+          <div class="field"><label>Minimum qoldiq</label><input name="min" type="number" min="0" step="0.001" value="5"></div>
+        </div>
+        <button class="primary-btn" type="submit">Tovarni saqlash</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

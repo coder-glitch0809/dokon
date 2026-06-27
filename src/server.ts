@@ -7,7 +7,7 @@ import crypto from "node:crypto";
 
 type Role = "superadmin" | "admin" | "manager" | "cashier" | "baker";
 type Account = { id: string; name: string; type: string; number: string; balance: number };
-type Product = { id: string; name: string; category: string; unit: string; qty: number; cost: number; price: number; min: number; currency?: string; usdRate?: number };
+type Product = { id: string; name: string; category: string; unit: string; qty: number; cost: number; price: number; min: number; barcode?: string; currency?: string; usdRate?: number };
 type Bread = { id: string; name: string; qty: number; price: number; flourUsed: number; flourBags?: number; extraCost: number; produced: number; costPerBread: number; note?: string; date: string };
 type Sale = { id: string; itemId: string; itemType: "product" | "bread"; name: string; qty: number; price: number; cost: number; account: string; date: string };
 type Expense = { id: string; title: string; category: string; amount: number; account: string; note: string; date: string; originalAmount?: number; currency?: string; usdRate?: number };
@@ -121,29 +121,16 @@ function seedDb(): Db {
   }
   return {
     accounts: [
-      { id: "cash", name: "Asosiy kassa", type: "Kassa", number: "Do'kon", balance: 4500000 },
-      { id: "uzcard", name: "Uzcard savdo", type: "Karta", number: "8600 **** 4412", balance: 2800000 },
-      { id: "bank", name: "Bank hisob raqam", type: "Bank hisob raqam", number: "2020 **** 7788", balance: 12000000 }
+      { id: "cash", name: "Asosiy kassa", type: "Kassa", number: "Do'kon", balance: 0 },
+      { id: "uzcard", name: "Uzcard savdo", type: "Karta", number: "8600 **** 4412", balance: 0 },
+      { id: "bank", name: "Bank hisob raqam", type: "Bank hisob raqam", number: "2020 **** 7788", balance: 0 }
     ],
-    products: [
-      { id: "p1", name: "Shakar", category: "Oziq-ovqat", unit: "kg", qty: 39, cost: 12000, price: 14500, min: 10 },
-      { id: "p2", name: "Yog'", category: "Oziq-ovqat", unit: "litr", qty: 24, cost: 18000, price: 22000, min: 8 },
-      { id: "flour", name: "Un", category: "Nonvoyxona", unit: "kg", qty: 350, cost: 5200, price: 6500, min: 80 }
-    ],
-    breads: [
-      { id: "b1", name: "Buxanka non", qty: 85, price: 4000, flourUsed: 75, extraCost: 120000, produced: 120, costPerBread: 3100, date: today() }
-    ],
-    sales: [
-      { id: "s1", itemId: "b1", itemType: "bread", name: "Buxanka non", qty: 35, price: 4000, cost: 3100, account: "cash", date: today() },
-      { id: "s2", itemId: "p1", itemType: "product", name: "Shakar", qty: 3, price: 14500, cost: 12000, account: "uzcard", date: today() }
-    ],
-    expenses: [
-      { id: "e1", title: "Elektr to'lovi", category: "Kommunal", amount: 260000, account: "bank", note: "Market va nonvoyxona", date: today() }
-    ],
+    products: [],
+    breads: [],
+    sales: [],
+    expenses: [],
     purchases: [],
-    suppliers: [
-      { id: "sup_main", name: "Asosiy ta'minotchi", phone: "", note: "Demo ta'minotchi", balance: 0, createdAt: new Date().toISOString() }
-    ],
+    suppliers: [],
     supplierPayments: [],
     archive: [],
     settings: { usdRate: 12600, usdRateDate: today() },
@@ -250,7 +237,7 @@ function securityHeaders(res: ServerResponse) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "same-origin");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
   res.setHeader("Content-Security-Policy", [
     "default-src 'self'",
     "img-src 'self' https://images.unsplash.com https://www.google-analytics.com data:",
@@ -266,7 +253,8 @@ function securityHeaders(res: ServerResponse) {
 function corsHeaders(req: IncomingMessage, res: ServerResponse) {
   const origin = headerValue(req, "origin");
   const localDevOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-  if (origin && (origin === allowedOrigin || (!isProduction && localDevOrigin))) {
+  const allowedOrigins = allowedOrigin.replace(/^\[|\]$/g, "").split(",").map((item) => item.trim()).filter(Boolean);
+  if (origin && (allowedOrigins.includes(origin) || (!isProduction && localDevOrigin))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-csrf-token");
@@ -398,6 +386,20 @@ function visibleState(db: Db, user: Worker) {
     allowedViews: views,
     summary: summary(db),
     analytics: canView(user, "analytics") || canView(user, "dashboard") ? analytics(db) : null
+  };
+}
+
+function publicProduct(product: Product) {
+  return {
+    id: product.id,
+    name: product.name,
+    category: product.category,
+    unit: product.unit,
+    qty: product.qty,
+    cost: product.cost,
+    price: product.price,
+    min: product.min,
+    barcode: product.barcode || ""
   };
 }
 
@@ -559,6 +561,15 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     return send(res, 200, { usdRate, date: db.settings.usdRateDate });
   }
 
+  if (url.pathname === "/api/barcode" && req.method === "GET") {
+    const { db, user } = await requireUser(req);
+    if (!canView(user, "inventory") && !canView(user, "sales")) throw httpError(403, "Bu amal uchun ruxsat yo'q");
+    const code = cleanString(url.searchParams.get("code"), 80);
+    if (!code) throw httpError(400, "Barcode kiriting");
+    const product = db.products.find((item) => item.barcode === code || item.id === code);
+    return send(res, 200, { found: !!product, product: product ? publicProduct(product) : null, code });
+  }
+
   if (url.pathname === "/api/purchases" && req.method === "POST") {
     const { db, user } = await requireUser(req, ["superadmin", "admin", "manager"]);
     requirePasswordReady(user);
@@ -578,7 +589,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
 
     const name = cleanString(body.name);
     if (!name) throw httpError(400, "Mahsulot nomini kiriting");
-    const existing = db.products.find((p) => p.name.toLowerCase() === name.toLowerCase());
+    const barcode = cleanString(body.barcode, 80);
+    const existing = db.products.find((p) => (barcode && p.barcode === barcode) || p.name.toLowerCase() === name.toLowerCase());
     if (existing) {
       const oldValue = existing.qty * existing.cost;
       existing.qty += qty;
@@ -587,10 +599,11 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
       existing.category = cleanString(body.category);
       existing.unit = cleanString(body.unit, 20) || existing.unit;
       existing.min = positive(body.min || existing.min || 5, "Minimum qoldiq");
+      if (barcode) existing.barcode = barcode;
       existing.currency = currency;
       existing.usdRate = usdRate;
     } else {
-      db.products.push({ id: id("p"), name, category: cleanString(body.category), unit: cleanString(body.unit, 20) || "dona", qty, cost, price, min: positive(body.min || 5, "Minimum qoldiq"), currency, usdRate });
+      db.products.push({ id: id("p"), name, category: cleanString(body.category), unit: cleanString(body.unit, 20) || "dona", qty, cost, price, min: positive(body.min || 5, "Minimum qoldiq"), barcode, currency, usdRate });
     }
     if (payFrom) payFrom.balance -= total;
     const supplierName = cleanString(body.supplier);
@@ -609,6 +622,31 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     audit(db, user, { type: "purchase", title: `Kirim: ${name}`, amount: total, direction: "minus", payload: purchase });
     await saveDb(db);
     return send(res, 201, { ok: true });
+  }
+
+  if (url.pathname === "/api/products" && req.method === "POST") {
+    const { db, user } = await requireUser(req, ["superadmin", "admin", "manager"]);
+    const body = await readJson(req) as Record<string, unknown>;
+    const barcode = cleanString(body.barcode, 80);
+    const name = cleanString(body.name);
+    if (!barcode) throw httpError(400, "Barcode kiriting");
+    if (!name) throw httpError(400, "Mahsulot nomini kiriting");
+    if (db.products.some((item) => item.barcode === barcode)) throw httpError(409, "Bu barcode bilan mahsulot bor");
+    const product = {
+      id: id("p"),
+      name,
+      category: cleanString(body.category) || "Barcode",
+      unit: cleanString(body.unit, 20) || "dona",
+      qty: positive(body.qty || 0, "Miqdor"),
+      cost: positive(body.cost || 0, "Tannarx"),
+      price: positive(body.price || 0, "Narx"),
+      min: positive(body.min || 5, "Minimum qoldiq"),
+      barcode
+    };
+    db.products.push(product);
+    audit(db, user, { type: "product", title: `Barcode mahsulot qo'shildi: ${product.name}`, amount: product.qty * product.cost, direction: "neutral", payload: product });
+    await saveDb(db);
+    return send(res, 201, { ok: true, product: publicProduct(product) });
   }
 
   if (url.pathname === "/api/sales" && req.method === "POST") {
@@ -790,7 +828,7 @@ async function handleApiSerialized(req: IncomingMessage, res: ServerResponse, ur
 }
 
 async function serveStatic(req: IncomingMessage, res: ServerResponse, url: URL) {
-  const requestPath = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
+  const requestPath = url.pathname === "/" ? "/index.html" : url.pathname === "/scan" ? "/scan.html" : decodeURIComponent(url.pathname);
   const filePath = path.normalize(path.join(publicDir, requestPath));
   const relativePath = path.relative(publicDir, filePath);
   if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) throw httpError(403, "Ruxsat yo'q");

@@ -39,3 +39,13 @@ Production muhitida `INITIAL_ADMIN_PASSWORD` majburiy. Developmentda parol beril
 - `data/db.json` - lokal runtime ma'lumotlar bazasi, git/deployga kiritilmaydi
 - `data/backups` - lokal kunlik backup fayllari, git/deployga kiritilmaydi
 - `SECURITY.md` - xavfsizlik bo'yicha izohlar
+
+## Telegram admin bot
+
+Kunlik hisobotni qo'lda olish uchun bot polling rejimini ishga tushiring:
+
+```bash
+python main.py --bot
+```
+
+Botda `/start` bosilganda inline tugmalar chiqadi: kunlik hisobot, kam qolgan tovarlar, top sotuvlar va balans.
