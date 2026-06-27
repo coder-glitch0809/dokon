@@ -22,12 +22,14 @@ declare module "node:fs/promises" {
   export function readFile(path: string, encoding: BufferEncoding): Promise<string>;
   export function readFile(path: string): Promise<Buffer>;
   export function writeFile(path: string, data: string, encoding?: BufferEncoding): Promise<void>;
+  export function rename(oldPath: string, newPath: string): Promise<void>;
   export function mkdir(path: string, options?: { recursive?: boolean }): Promise<string | undefined>;
   export function stat(path: string): Promise<unknown>;
 }
 
 declare module "node:fs" {
   export function existsSync(path: string): boolean;
+  export function readFileSync(path: string, encoding: BufferEncoding): string;
 }
 
 declare module "node:path" {
@@ -37,6 +39,8 @@ declare module "node:path" {
     join(...paths: string[]): string;
     normalize(path: string): string;
     extname(path: string): string;
+    relative(from: string, to: string): string;
+    isAbsolute(path: string): boolean;
   };
   export default path;
 }

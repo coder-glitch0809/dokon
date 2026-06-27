@@ -1,8 +1,11 @@
-# Zamon Market
+﻿# Zamon Market
 
 Market va nonvoyxona uchun hisob-kitob prototipi.
 
 ## Ishga tushirish
+
+1. `.env.example` faylidan `.env` yarating va qiymatlarni almashtiring.
+2. Serverni ishga tushiring:
 
 ```bash
 npm run dev
@@ -14,25 +17,17 @@ Brauzerda ochish:
 http://localhost:3104
 ```
 
-Demo loginlar:
+## Boshlang'ich admin
 
-- `Zamon / market123`
-
-## Login va parolni o'zgartirish
-
-Boshlang'ich demo login/parollar joyi:
+Yangi `data/db.json` yaratilganda boshlang'ich admin login/paroli koddan emas, `.env`dan olinadi:
 
 ```text
-src/server.ts -> initialUsers
+INITIAL_ADMIN_LOGIN=admin
+INITIAL_ADMIN_PASSWORD=uzun-va-maxfiy-parol
+PASSWORD_PEPPER=random-server-secret
 ```
 
-Tizim allaqachon ishga tushgan bo'lsa, parolni ilova ichida o'zgartiring:
-
-```text
-Profil -> Parolni o'zgartirish
-```
-
-`public/app.js` yoki `public/app2.js` ichiga parol yozmang. Bu fayllarni brauzerda hamma ko'ra oladi.
+Production muhitida `INITIAL_ADMIN_PASSWORD` majburiy. Developmentda parol berilmasa, server vaqtinchalik parol generatsiya qilib terminalga chiqaradi. Birinchi kirishda parolni almashtirish talab qilinadi.
 
 ## Tuzilma
 
@@ -40,5 +35,5 @@ Profil -> Parolni o'zgartirish
 - `public/styles.css` - UX/UI dizayn
 - `public/app.js` - frontend logika
 - `src/server.ts` - Node.js + TypeScript backend va xavfsizlik
-- `data/db.json` - lokal demo ma’lumotlar bazasi
-- `SECURITY.md` - xavfsizlik bo‘yicha izohlar
+- `data/db.json` - lokal runtime ma'lumotlar bazasi, git/deployga kiritilmaydi
+- `SECURITY.md` - xavfsizlik bo'yicha izohlar

@@ -1,11 +1,12 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="uz">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Zamon Market</title>
   <link rel="stylesheet" href="styles.css">
-  <script defer src="app2.js"></script>
+  <script type="module" src="firebase-init.js"></script>
+  <script defer src="app.js"></script>
 </head>
 <body>
   <section class="login-screen" id="loginScreen">
@@ -17,7 +18,7 @@
     <div class="login-panel">
       <form class="login-card" id="loginForm">
         <h2>Tizimga kirish</h2>
-        <p class="hint">Login: <b>Zamon</b> · Parol: <b>market123</b></p>
+        <p class="hint">Login va parolni kiriting.</p>
         <div class="field">
           <label for="username">Login</label>
           <input id="username" name="login" autocomplete="username" required>
@@ -103,19 +104,19 @@
               <div class="field"><label>Mahsulot</label><input name="name" required></div>
               <div class="field"><label>Kategoriya</label><input name="category" required></div>
               <div class="field"><label>Miqdor</label><input name="qty" type="number" min="0.001" step="0.001" required></div>
-              <div class="field"><label>O‘lchov</label><select name="unit"><option>dona</option><option>kg</option><option>litr</option><option>qop</option></select></div>
+              <div class="field"><label>O'lchov</label><select name="unit"><option>dona</option><option>kg</option><option>litr</option><option>qop</option></select></div>
               <div class="field"><label>Birlik tannarx</label><input name="cost" type="number" min="0" step="100" required></div>
               <div class="field"><label>Sotuv narxi</label><input name="price" type="number" min="0" step="100" required></div>
               <div class="field"><label>Valyuta</label><select name="currency" data-currency-select><option value="UZS">UZS</option><option value="USD">USD</option></select></div>
               <div class="field"><label>USD kursi</label><input name="usdRate" data-usd-rate type="number" min="1" step="0.01"></div>
-              <div class="field"><label>To‘lov manbasi</label><select name="account" data-account-select></select></div>
+              <div class="field"><label>To'lov manbasi</label><select name="account" data-account-select></select></div>
               <div class="field"><label>Yetkazuvchi</label><input name="supplier"></div>
               <div class="field"><label>Minimum qoldiq</label><input name="min" type="number" min="0" step="0.001" value="5"></div>
             </div>
-            <button class="primary-btn" type="submit">Kirim qo‘shish</button>
+            <button class="primary-btn" type="submit">Kirim qo'shish</button>
           </form>
           <div class="card">
-            <div class="card-pad section-head"><div><h3>Ombor qoldig‘i</h3><p>Kam qolgan mahsulotlar belgilanadi.</p></div></div>
+            <div class="card-pad section-head"><div><h3>Ombor qoldig'i</h3><p>Kam qolgan mahsulotlar belgilanadi.</p></div></div>
             <div class="table-wrap"><table id="stockTable"></table></div>
           </div>
         </div>
@@ -128,7 +129,7 @@
             <div class="form-grid">
               <div class="field full"><label>Tovar</label><select name="item" id="saleItem"></select></div>
               <div class="field"><label>Miqdor</label><input name="qty" id="saleQty" type="number" min="0.001" step="0.001" required></div>
-              <div class="field"><label>To‘lov turi</label><select name="account" data-account-select></select></div>
+              <div class="field"><label>To'lov turi</label><select name="account" data-account-select></select></div>
               <div class="field"><label>Narx</label><input id="salePrice" readonly></div>
               <div class="field"><label>Umumiy summa</label><input id="saleTotal" readonly></div>
             </div>
@@ -151,7 +152,7 @@
               <div class="field"><label>Ishlatilgan un, kg</label><input name="flourUsed" type="number" min="0.001" step="0.001" required></div>
               <div class="field"><label>Ishlatilgan un, qop</label><input name="flourBags" type="number" min="0" step="0.01"></div>
               <div class="field"><label>Bitta non narxi</label><input name="breadPrice" type="number" min="0" step="100" required></div>
-              <div class="field"><label>Qo‘shimcha xarajat</label><input name="extraCost" type="number" min="0" step="100" value="0"></div>
+              <div class="field"><label>Qo'shimcha xarajat</label><input name="extraCost" type="number" min="0" step="100" value="0"></div>
               <div class="field"><label>Izoh</label><input name="note"></div>
             </div>
             <button class="primary-btn" type="submit">Ishlab chiqarish</button>
@@ -170,7 +171,7 @@
             <div class="section-head"><div><h3>Rasxod kiritish</h3><p>Nimaga va qaysi hisobdan ketgani.</p></div></div>
             <div class="form-grid">
               <div class="field"><label>Nomi</label><input name="title" required></div>
-              <div class="field"><label>Kategoriya</label><select name="category"><option>Do‘kon</option><option>Nonvoyxona</option><option>Oylik</option><option>Kommunal</option><option>Transport</option><option>Boshqa</option></select></div>
+              <div class="field"><label>Kategoriya</label><select name="category"><option>Do'kon</option><option>Nonvoyxona</option><option>Oylik</option><option>Kommunal</option><option>Transport</option><option>Boshqa</option></select></div>
               <div class="field"><label>Summa</label><input name="amount" type="number" min="0" step="100" required></div>
               <div class="field"><label>Valyuta</label><select name="currency" data-currency-select><option value="UZS">UZS</option><option value="USD">USD</option></select></div>
               <div class="field"><label>USD kursi</label><input name="usdRate" data-usd-rate type="number" min="1" step="0.01"></div>
@@ -189,14 +190,14 @@
       <section class="view" id="accountsView">
         <div class="grid two-col">
           <form class="card card-pad" id="accountForm">
-            <div class="section-head"><div><h3>Karta va hisob raqam</h3><p>Kassa, karta yoki bank hisobini qo‘shish.</p></div></div>
+            <div class="section-head"><div><h3>Karta va hisob raqam</h3><p>Kassa, karta yoki bank hisobini qo'shish.</p></div></div>
             <div class="form-grid">
               <div class="field"><label>Nomi</label><input name="name" required></div>
               <div class="field"><label>Turi</label><select name="type"><option>Kassa</option><option>Karta</option><option>Bank hisob raqam</option></select></div>
-              <div class="field"><label>Boshlang‘ich balans</label><input name="balance" type="number" min="0" step="100" required></div>
+              <div class="field"><label>Boshlang'ich balans</label><input name="balance" type="number" min="0" step="100" required></div>
               <div class="field"><label>Raqam</label><input name="number"></div>
             </div>
-            <button class="primary-btn" type="submit">Hisob qo‘shish</button>
+            <button class="primary-btn" type="submit">Hisob qo'shish</button>
           </form>
           <div class="card">
             <div class="card-pad section-head"><div><h3>Balanslar</h3><p>Har bir hisobda qancha qolgan.</p></div></div>
@@ -212,16 +213,15 @@
             <div class="form-grid">
               <div class="field"><label>Ism</label><input name="name" required></div>
               <div class="field"><label>Login</label><input name="login" required></div>
-              <div class="field"><label>Parol</label><input name="password" type="password" required minlength="4"></div>
-              <input name="role" type="hidden" value="superadmin">
-              <div class="field"><label>Rol</label><input value="Superadmin" readonly></div>
+              <div class="field"><label>Parol</label><input name="password" type="password" required minlength="10"></div>
+              <div class="field"><label>Rol</label><select name="role"><option value="cashier">Kassir</option><option value="baker">Nonvoy</option><option value="manager">Menejer</option><option value="admin">Admin</option><option value="superadmin">Superadmin</option></select></div>
               <div class="field"><label>Oylik</label><input name="salary" type="number" min="0" step="1000"></div>
               <div class="field"><label>Telefon</label><input name="phone"></div>
             </div>
-            <button class="primary-btn" type="submit">Ishchi qo‘shish</button>
+            <button class="primary-btn" type="submit">Ishchi qo'shish</button>
           </form>
           <div class="card">
-            <div class="card-pad section-head"><div><h3>Jamoa</h3><p>Rollar bo‘yicha xodimlar.</p></div></div>
+            <div class="card-pad section-head"><div><h3>Jamoa</h3><p>Rollar bo'yicha xodimlar.</p></div></div>
             <div class="table-wrap"><table id="workersTable"></table></div>
           </div>
         </div>
@@ -230,11 +230,11 @@
       <section class="view" id="profileView">
         <div class="grid two-col">
           <form class="card card-pad" id="passwordForm">
-            <div class="section-head"><div><h3>Parolni o‘zgartirish</h3><p>Har bir foydalanuvchi o‘z parolini yangilashi mumkin.</p></div></div>
+            <div class="section-head"><div><h3>Parolni o'zgartirish</h3><p>Har bir foydalanuvchi o'z parolini yangilashi mumkin.</p></div></div>
             <div class="form-grid">
               <div class="field full"><label>Hozirgi parol</label><input name="currentPassword" type="password" required></div>
-              <div class="field"><label>Yangi parol</label><input name="newPassword" type="password" minlength="6" required></div>
-              <div class="field"><label>Yangi parolni qayta kiriting</label><input name="confirmPassword" type="password" minlength="6" required></div>
+              <div class="field"><label>Yangi parol</label><input name="newPassword" type="password" minlength="10" required></div>
+              <div class="field"><label>Yangi parolni qayta kiriting</label><input name="confirmPassword" type="password" minlength="10" required></div>
             </div>
             <button class="primary-btn" type="submit">Parolni yangilash</button>
           </form>
@@ -255,3 +255,4 @@
   </section>
 </body>
 </html>
+
