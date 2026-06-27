@@ -60,6 +60,7 @@ declare module "node:crypto" {
 
 declare const process: {
   env: Record<string, string | undefined>;
+  pid: number;
 };
 
 type BufferEncoding = "utf8" | "hex" | "base64" | string;

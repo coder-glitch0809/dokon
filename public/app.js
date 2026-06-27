@@ -16,9 +16,7 @@ const navItems = [
 let state = null;
 let session = null;
 let activeView = "dashboard";
-const API_ORIGIN = location.protocol.startsWith("http") && location.port !== "3104"
-  ? `${location.protocol}//${location.hostname || "localhost"}:3104`
-  : "";
+const API_ORIGIN = "";
 
 const $ = (id) => document.getElementById(id);
 const fmtMoney = (value) => money.format(Math.round(Number(value || 0)));
@@ -42,7 +40,7 @@ async function api(path, options = {}) {
   try {
     response = await fetch(`${API_ORIGIN}${path}`, { credentials: "include", ...options, headers });
   } catch {
-    throw new Error("Serverga ulanib bo'lmadi. Terminalda npm run dev ishga tushiring va ilovani http://localhost:3104/ orqali oching.");
+    throw new Error("Serverga ulanib bo'lmadi. Lokal muhitda npm run dev ishlayotganini, Vercel muhitida esa /api yo'llari deploy qilinganini tekshiring.");
   }
   const contentType = response.headers.get("content-type") || "";
   const body = contentType.includes("application/json") ? await response.json() : await response.text();
