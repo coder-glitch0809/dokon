@@ -62,7 +62,10 @@ function initialAdmin() {
   const login = cleanString(process.env.INITIAL_ADMIN_LOGIN || "admin", 40);
   const envPassword = process.env.INITIAL_ADMIN_PASSWORD;
   if (isProduction && !envPassword) {
-    throw new Error("INITIAL_ADMIN_PASSWORD production muhitida majburiy");
+    throw httpError(503, "Server sozlanmagan: Vercel Environment Variables ichida INITIAL_ADMIN_PASSWORD qo'yilishi kerak");
+  }
+  if (envPassword && envPassword.length < 10) {
+    throw httpError(503, "Server sozlanmagan: INITIAL_ADMIN_PASSWORD kamida 10 belgi bo'lishi kerak");
   }
   const password = envPassword || crypto.randomBytes(18).toString("base64url");
   return { name: "Superadmin", login, password, role: "superadmin" as Role, salary: 0, generated: !envPassword };
