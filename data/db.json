@@ -111,8 +111,9 @@
       "role": "superadmin",
       "salary": 0,
       "phone": "",
-      "passwordHash": "24af52f2259009b35be7f87234592314622d74ead96df45dc72b150b1df9f8b0",
-      "passwordSalt": "9f9c00b8a17b443b4f457b300afa8e2c"
+      "passwordHash": "4b51680ac97f1d1381074f0e87af3cec1dc7048f1663fccf1cc883fe58d8bff4",
+      "passwordSalt": "aacdd6efa7fc1b0240e56065b1d27b04",
+      "mustChangePassword": true
     }
   ],
   "archive": [

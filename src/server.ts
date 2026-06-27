@@ -102,10 +102,10 @@ function resetWorkerPassword(worker: Worker, password: string) {
   const passwordData = hashPassword(password);
   worker.passwordHash = passwordData.hash;
   worker.passwordSalt = passwordData.salt;
-  worker.mustChangePassword = true;
+  worker.mustChangePassword = false;
 }
 
-function seedWorker(name: string, login: string, password: string, role: Role, salary: number, mustChangePassword = true): Worker {
+function seedWorker(name: string, login: string, password: string, role: Role, salary: number, mustChangePassword = false): Worker {
   const passwordData = hashPassword(password);
   return { id: id("u"), name, login, role, salary, phone: "", passwordHash: passwordData.hash, passwordSalt: passwordData.salt, mustChangePassword };
 }
@@ -139,7 +139,7 @@ function seedDb(): Db {
     purchases: [],
     archive: [],
     settings: { usdRate: 12600, usdRateDate: today() },
-    workers: [seedWorker(admin.name, admin.login, admin.password, admin.role, admin.salary, true)]
+    workers: [seedWorker(admin.name, admin.login, admin.password, admin.role, admin.salary, false)]
   };
 }
 
@@ -309,8 +309,8 @@ async function requireUser(req: IncomingMessage, roles?: Role[]) {
   return { db, user, session };
 }
 
-function requirePasswordReady(user: Worker) {
-  if (user.mustChangePassword) throw httpError(403, "Avval vaqtinchalik parolni o'zgartiring");
+function requirePasswordReady(_user: Worker) {
+  return;
 }
 
 function account(db: Db, accountId: string) {
@@ -350,7 +350,7 @@ function canView(user: Worker, view: string) {
 }
 
 function visibleState(db: Db, user: Worker) {
-  const views = user.mustChangePassword ? ["profile"] : allowedViews[user.role];
+  const views = allowedViews[user.role];
   return {
     accounts: canView(user, "accounts") || canView(user, "sales") || canView(user, "expenses") || canView(user, "inventory") ? db.accounts : [],
     products: canView(user, "inventory") || canView(user, "sales") || canView(user, "bakery") ? db.products : [],
@@ -608,7 +608,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     const password = String(body.password || "");
     if (password.length < 10) throw httpError(400, "Parol kamida 10 belgi bo'lsin");
     const passwordData = hashPassword(password);
-    const worker = { id: id("u"), name: cleanString(body.name), login, role, salary: positive(body.salary || 0, "Oylik"), phone: cleanString(body.phone, 40), passwordHash: passwordData.hash, passwordSalt: passwordData.salt, mustChangePassword: true };
+    const worker = { id: id("u"), name: cleanString(body.name), login, role, salary: positive(body.salary || 0, "Oylik"), phone: cleanString(body.phone, 40), passwordHash: passwordData.hash, passwordSalt: passwordData.salt, mustChangePassword: false };
     db.workers.push(worker);
     audit(db, user, { type: "worker", title: `Ishchi qo'shildi: ${worker.name}`, amount: 0, direction: "neutral", payload: publicWorker(worker) });
     await saveDb(db);
