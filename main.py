@@ -21,7 +21,7 @@ CUSTOM_EMOJI_IDS = {
     "low_stock": "5323289282499064033",
     "top_sales": "5409008750893734809",
     "balance": "5325971446625758812",
-    "add_product": "5309957081242029538",
+    "add_product": "5440410042773824003",
 }
 CUSTOM_EMOJI_FALLBACKS = {
     "daily": "📝",
@@ -60,7 +60,42 @@ def as_day(value: str) -> str:
     return str(value or "")[:10]
 
 
+def firebase_enabled() -> bool:
+    return bool(os.environ.get("FIREBASE_DATABASE_URL", "").strip())
+
+
+def firebase_url(path_part: str = "") -> str:
+    database_url = os.environ.get("FIREBASE_DATABASE_URL", "").strip().rstrip("/")
+    db_path = os.environ.get("FIREBASE_DB_PATH", "zamon-market/db").strip().strip("/")
+    clean_path = "/".join(part for part in [db_path, path_part.strip("/")] if part)
+    secret = os.environ.get("FIREBASE_DATABASE_SECRET", "").strip()
+    query = "?" + urllib.parse.urlencode({"auth": secret}) if secret else ""
+    return f"{database_url}/{clean_path}.json{query}"
+
+
+def firebase_load_db() -> dict[str, Any] | None:
+    request = urllib.request.Request(firebase_url(), method="GET")
+    token = os.environ.get("FIREBASE_AUTH_TOKEN", "").strip()
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            if response.status >= 400:
+                raise RuntimeError(f"Firebase xato: HTTP {response.status}")
+            return json.loads(response.read().decode("utf-8")) or None
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Firebase xato: HTTP {exc.code}. {details}") from exc
+
+
 def load_db(path: Path) -> dict[str, Any]:
+    if firebase_enabled():
+        db = firebase_load_db()
+        if db is not None:
+            return db
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+        raise FileNotFoundError("Firebase Realtime Database ichida DB topilmadi")
     if not path.exists():
         raise FileNotFoundError(f"DB topilmadi: {path}")
     return json.loads(path.read_text(encoding="utf-8"))
@@ -257,7 +292,7 @@ def telegram_send_add_product_menu(token: str, chat_id: str) -> None:
                 },
                 {
                     "text": "📷 Skanerlash",
-                    "url": SCAN_URL,
+                    "web_app": {"url": SCAN_URL},
                 },
             ],
             [

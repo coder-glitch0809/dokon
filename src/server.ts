@@ -46,12 +46,22 @@ const port = Number(process.env.PORT || 3104);
 const isProduction = process.env.NODE_ENV === "production";
 const allowedOrigin = process.env.ALLOWED_ORIGIN || "";
 const passwordPepper = process.env.PASSWORD_PEPPER || "";
+const firebaseDatabaseUrl = (process.env.FIREBASE_DATABASE_URL || "https://dokonmalumotlari-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+const firebaseDbPath = (process.env.FIREBASE_DB_PATH || "zamon-market/db").replace(/^\/+|\/+$/g, "");
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || "dokonmalumotlari";
+const firebaseClientEmail = process.env.FIREBASE_CLIENT_EMAIL || "";
+const firebasePrivateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+const firebaseAuthToken = process.env.FIREBASE_AUTH_TOKEN || "";
+const firebaseDatabaseSecret = process.env.FIREBASE_DATABASE_SECRET || "";
+const firebaseAllowUnauthenticated = process.env.FIREBASE_ALLOW_UNAUTHENTICATED === "true";
+const firebaseEnabled = !!firebaseDatabaseUrl && (firebaseAllowUnauthenticated || !!firebaseAuthToken || !!firebaseDatabaseSecret || (!!firebaseProjectId && !!firebaseClientEmail && !!firebasePrivateKey));
 
 const sessions = new Map<string, Session>();
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const loginFailures = new Map<string, { count: number; lockedUntil: number }>();
 let dbWriteQueue = Promise.resolve();
 let mutationQueue = Promise.resolve();
+let firebaseAccessToken: { token: string; expiresAt: number } | null = null;
 const sessionTtlMs = Number(process.env.SESSION_IDLE_MINUTES || 30) * 60_000;
 
 const allowedViews: Record<Role, string[]> = {
@@ -138,8 +148,110 @@ function seedDb(): Db {
   };
 }
 
+function base64Url(input: string | Buffer) {
+  return Buffer.from(input).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+async function firebaseBearerToken() {
+  if (firebaseAuthToken) return firebaseAuthToken;
+  if (firebaseDatabaseSecret) return "";
+  if (firebaseAllowUnauthenticated) return "";
+  if (firebaseAccessToken && firebaseAccessToken.expiresAt > Date.now() + 60_000) return firebaseAccessToken.token;
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: firebaseClientEmail,
+    sub: firebaseClientEmail,
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+    scope: "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email"
+  };
+  const unsigned = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(payload))}`;
+  const signature = crypto.sign("RSA-SHA256", Buffer.from(unsigned), firebasePrivateKey);
+  const assertion = `${unsigned}.${base64Url(signature)}`;
+  const body = new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    assertion
+  });
+  const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", body });
+  const data = await response.json() as { access_token?: string; expires_in?: number; error?: string; error_description?: string };
+  if (!response.ok || !data.access_token) throw httpError(503, `Firebase token olinmadi: ${data.error_description || data.error || response.status}`);
+  firebaseAccessToken = { token: data.access_token, expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000 };
+  return firebaseAccessToken.token;
+}
+
+function firebaseUrlAt(cleanPath: string) {
+  const query = firebaseDatabaseSecret ? `?${new URLSearchParams({ auth: firebaseDatabaseSecret })}` : "";
+  return `${firebaseDatabaseUrl}/${cleanPath}.json${query}`;
+}
+
+async function firebaseRequestAt<T>(cleanPath: string, method: "GET" | "PUT", body?: unknown): Promise<T | null> {
+  const token = await firebaseBearerToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(firebaseUrlAt(cleanPath), {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  if (response.status === 404) return null;
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    const message = typeof data?.error === "string" ? data.error : `HTTP ${response.status}`;
+    throw httpError(503, `Firebase xatosi: ${message}`);
+  }
+  return data as T | null;
+}
+
+async function firebaseRequest<T>(pathPart: string, method: "GET" | "PUT", body?: unknown): Promise<T | null> {
+  const cleanPath = [firebaseDbPath, pathPart].filter(Boolean).join("/").replace(/^\/+|\/+$/g, "");
+  return firebaseRequestAt<T>(cleanPath, method, body);
+}
+
+async function loadFirebaseDb() {
+  return firebaseRequest<Db>("", "GET");
+}
+
+async function saveFirebaseDb(db: Db) {
+  await firebaseRequest<Db>("", "PUT", db);
+}
+
 async function loadDb(): Promise<Db> {
   await mkdir(dataDir, { recursive: true });
+  if (firebaseEnabled) {
+    const firebaseDb = await loadFirebaseDb();
+    if (!firebaseDb) {
+      const db = existsSync(dbPath) ? JSON.parse(await readFile(dbPath, "utf8")) as Db : seedDb();
+      await saveDb(db);
+      return db;
+    }
+    const db = firebaseDb as Db;
+    db.archive ||= [];
+    db.suppliers ||= [];
+    db.supplierPayments ||= [];
+    db.settings ||= { usdRate: 12600, usdRateDate: today() };
+    db.accounts ||= [];
+    db.products ||= [];
+    db.breads ||= [];
+    db.sales ||= [];
+    db.expenses ||= [];
+    db.purchases ||= [];
+    db.workers ||= [];
+    let migrated = false;
+    for (const worker of db.workers) {
+      worker.role = allowedViews[worker.role] ? worker.role : "cashier";
+      worker.mustChangePassword ||= false;
+    }
+    if (!db.workers.length) {
+      const admin = initialAdmin();
+      db.workers.push(seedWorker(admin.name, admin.login, admin.password, admin.role, admin.salary, false));
+      migrated = true;
+    }
+    if (migrated) await saveDb(db);
+    return db;
+  }
   if (!existsSync(dbPath)) {
     const db = seedDb();
     await saveDb(db);
@@ -170,8 +282,12 @@ async function loadDb(): Promise<Db> {
 
 async function saveDb(db: Db) {
   dbWriteQueue = dbWriteQueue.catch(() => undefined).then(async () => {
-    await mkdir(dataDir, { recursive: true });
     await ensureDailyBackup(db);
+    if (firebaseEnabled) {
+      await saveFirebaseDb(db);
+      return;
+    }
+    await mkdir(dataDir, { recursive: true });
     const tempPath = `${dbPath}.${process.pid}.${Date.now()}.tmp`;
     await writeFile(tempPath, JSON.stringify(db, null, 2), "utf8");
     await rename(tempPath, dbPath);
@@ -182,6 +298,13 @@ async function saveDb(db: Db) {
 async function ensureDailyBackup(db: Db) {
   const day = today();
   if (db.settings.lastBackupDate === day) return;
+  if (firebaseEnabled) {
+    const baseParts = firebaseDbPath.split("/").filter(Boolean);
+    const backupPath = [...baseParts.slice(0, -1), "backups", day].join("/") || `backups/${day}`;
+    await firebaseRequestAt(backupPath, "PUT", { createdAt: new Date().toISOString(), db });
+    db.settings.lastBackupDate = day;
+    return;
+  }
   await mkdir(backupDir, { recursive: true });
   const backupPath = path.join(backupDir, `zamon-market-${day}.json`);
   if (!existsSync(backupPath)) {
@@ -191,6 +314,9 @@ async function ensureDailyBackup(db: Db) {
 }
 
 async function backupStatus() {
+  if (firebaseEnabled) {
+    return { count: 0, latest: null, storage: "firebase-realtime-database" };
+  }
   try {
     const files = (await readdir(backupDir)).filter((file) => file.endsWith(".json")).sort().reverse();
     return { count: files.length, latest: files[0] || null, storage: isVercel ? "temporary-vercel-tmp" : "local-file" };
@@ -243,7 +369,8 @@ function securityHeaders(res: ServerResponse) {
     "img-src 'self' https://images.unsplash.com https://www.google-analytics.com data:",
     "style-src 'self'",
     "script-src 'self' https://www.gstatic.com https://www.googletagmanager.com",
-    "connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://firebaseinstallations.googleapis.com",
+    "media-src 'self' blob:",
+    "connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://firebaseinstallations.googleapis.com https://dokonmalumotlari-default-rtdb.firebaseio.com wss://dokonmalumotlari-default-rtdb.firebaseio.com",
     "base-uri 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'"
@@ -585,7 +712,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     const accountId = cleanString(body.account);
     const isSupplierDebt = accountId === "supplier_debt";
     const payFrom = isSupplierDebt ? null : account(db, accountId);
-    if (payFrom) assertBalance(payFrom, total);
+    // Asosiy kassa kirim xaridlarida qarzni manfiy balans sifatida yuritadi.
+    // Boshqa hisoblarda mavjud mablag' nazorati saqlanadi.
+    if (payFrom && payFrom.id !== "cash") assertBalance(payFrom, total);
 
     const name = cleanString(body.name);
     if (!name) throw httpError(400, "Mahsulot nomini kiriting");

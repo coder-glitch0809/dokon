@@ -12,6 +12,7 @@
     "node": ">=24"
   },
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
     "firebase": "^12.15.0"
   }
 }

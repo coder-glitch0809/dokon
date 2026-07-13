@@ -548,6 +548,61 @@ code {
 .empty { padding: 22px; color: var(--muted); text-align: center; }
 .mobile-nav { display: none; }
 
+.scan-page {
+  position: relative;
+  min-height: 100vh;
+  padding: clamp(14px, 4vw, 36px);
+}
+
+.scan-shell {
+  width: min(100%, 760px);
+  margin: 0 auto;
+}
+
+.scan-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.scan-head h1 { margin: 0 0 6px; }
+.scan-head p { margin: 0; color: var(--muted); }
+.scan-mark { margin-bottom: 14px; color: var(--ink); }
+
+.scanner-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 68vh;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #081016;
+  box-shadow: var(--shadow);
+}
+
+#scanVideo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #081016;
+}
+
+.scan-frame {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(72%, 430px);
+  aspect-ratio: 1.7 / 1;
+  transform: translate(-50%, -50%);
+  border: 3px solid rgba(255, 255, 255, .92);
+  border-radius: 12px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, .24), 0 0 24px rgba(18, 110, 101, .46);
+  pointer-events: none;
+}
+
 @media (max-width: 1040px) {
   .login-screen, .app { grid-template-columns: 1fr; }
   .login-copy { min-height: 380px; }
@@ -569,4 +624,7 @@ code {
   .top-actions > * { flex: 1 1 auto; }
   .kpi-grid, .monitor-grid, .two-col, .form-grid { grid-template-columns: 1fr; }
   .login-copy h1 { font-size: 40px; }
+  .scan-page { padding: 10px; }
+  .scan-head { align-items: center; }
+  .scanner-card { aspect-ratio: 3 / 4; max-height: 62vh; }
 }

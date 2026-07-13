@@ -1,6 +1,9 @@
 let detector = null;
 let stream = null;
 let scanning = false;
+let starting = false;
+let zxingControls = null;
+let scanFrame = 0;
 let lastCode = "";
 let lastSeenAt = 0;
 
@@ -18,6 +21,10 @@ function setStatus(text) {
   statusEl.textContent = text;
 }
 
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
 async function api(path, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   const response = await fetch(path, { credentials: "include", ...options, headers });
@@ -29,9 +36,7 @@ async function api(path, options = {}) {
 
 async function ensureLogin() {
   const session = await api("/api/session");
-  if (!session.user) {
-    location.href = "/";
-  }
+  return !!session.user;
 }
 
 function showProduct(product) {
@@ -58,9 +63,16 @@ async function checkCode(code) {
   lastSeenAt = now;
   manualCode.value = clean;
   setStatus(`Kod o'qildi: ${clean}`);
-  const result = await api(`/api/barcode?code=${encodeURIComponent(clean)}`);
-  if (result.found) showProduct(result.product);
-  else showNewProduct(clean);
+  try {
+    const result = await api(`/api/barcode?code=${encodeURIComponent(clean)}`);
+    if (result.found) showProduct(result.product);
+    else showNewProduct(clean);
+  } catch (error) {
+    resultCard.hidden = false;
+    resultTitle.textContent = "Kamera kodni o'qidi";
+    resultText.innerHTML = `Barcode: <b>${esc(clean)}</b><br>${esc(error.message || "Bazadan tekshirish uchun tizimga kiring.")}`;
+    newProductForm.hidden = true;
+  }
 }
 
 async function scanLoop() {
@@ -69,22 +81,115 @@ async function scanLoop() {
     const codes = await detector.detect(video);
     if (codes.length) await checkCode(codes[0].rawValue);
   } catch {}
-  requestAnimationFrame(scanLoop);
+  scanFrame = requestAnimationFrame(scanLoop);
+}
+
+async function startNativeDetector() {
+  if (!("BarcodeDetector" in window)) return false;
+  const wantedFormats = ["qr_code", "ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e"];
+  const supportedFormats = typeof BarcodeDetector.getSupportedFormats === "function"
+    ? await BarcodeDetector.getSupportedFormats()
+    : wantedFormats;
+  const formats = wantedFormats.filter((format) => supportedFormats.includes(format));
+  if (!formats.length) return false;
+  detector = new BarcodeDetector({ formats });
+  setStatus("Skaner tayyor. Kodni kamera markaziga tuting.");
+  scanLoop();
+  return true;
+}
+
+async function startZxingDetector() {
+  if (!stream || !window.ZXingBrowser?.BrowserMultiFormatReader) return false;
+  const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
+  if (typeof reader.decodeFromStream !== "function") return false;
+  zxingControls = await reader.decodeFromStream(stream, video, (result) => {
+    if (result?.getText) checkCode(result.getText()).catch((error) => setStatus(error.message));
+  });
+  setStatus("Skaner tayyor. Kodni kamera markaziga tuting.");
+  return true;
+}
+
+function stopCamera() {
+  scanning = false;
+  starting = false;
+  detector = null;
+  if (scanFrame) cancelAnimationFrame(scanFrame);
+  scanFrame = 0;
+  if (zxingControls?.stop) zxingControls.stop();
+  zxingControls = null;
+  if (stream) stream.getTracks().forEach((track) => track.stop());
+  stream = null;
+  video.srcObject = null;
+}
+
+async function openCameraStream() {
+  const attempts = [
+    { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    true
+  ];
+  let lastError = null;
+  for (const videoConstraints of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+    } catch (error) {
+      lastError = error;
+      if (error?.name === "NotAllowedError" || error?.name === "SecurityError") throw error;
+    }
+  }
+  throw lastError || new Error("Qurilmada ishlaydigan kamera topilmadi.");
+}
+
+function cameraErrorMessage(error) {
+  if (!window.isSecureContext) return "Kamera faqat HTTPS orqali ishlaydi. Saytni xavfsiz HTTPS manzilida oching.";
+  if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
+    return "Kamera ruxsati bloklangan. Brauzer sozlamasida ushbu sayt uchun Camera ruxsatini Allow qiling va qayta bosing.";
+  }
+  if (error?.name === "NotFoundError" || error?.name === "DevicesNotFoundError") return "Qurilmada kamera topilmadi.";
+  if (error?.name === "NotReadableError" || error?.name === "TrackStartError") return "Kamera boshqa ilovada band. Uni yoping va kamerani qayta oching.";
+  return error?.message || "Kamera ochilmadi.";
 }
 
 async function startCamera() {
-  await ensureLogin();
-  if (!("BarcodeDetector" in window)) {
-    setStatus("Bu brauzer avtomatik skanerni qo'llab-quvvatlamaydi. Kodni qo'lda kiriting.");
+  if (starting || (scanning && stream?.active)) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus(window.isSecureContext
+      ? "Bu brauzer kamerani qo'llab-quvvatlamaydi. Sahifani Chrome yoki Safari brauzerida oching."
+      : "Kamera faqat HTTPS orqali ishlaydi. Saytni xavfsiz HTTPS manzilida oching.");
     return;
   }
-  detector = new BarcodeDetector({ formats: ["qr_code", "ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e"] });
-  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-  video.srcObject = stream;
-  await video.play();
-  scanning = true;
-  setStatus("Skaner tayyor. Kodni kamera markaziga tuting.");
-  scanLoop();
+  stopCamera();
+  starting = true;
+  setStatus("Kamera ochilmoqda...");
+  try {
+    stream = await openCameraStream();
+    video.srcObject = stream;
+    await video.play();
+    scanning = true;
+    starting = false;
+    const track = stream.getVideoTracks()[0];
+    if (track) {
+      track.addEventListener("ended", () => {
+        if (!document.hidden) {
+          stopCamera();
+          setStatus("Kamera uzildi. Qayta ochish uchun tugmani bosing.");
+        }
+      }, { once: true });
+    }
+  } catch (error) {
+    stopCamera();
+    setStatus(cameraErrorMessage(error));
+    return;
+  }
+
+  try {
+    if (await startNativeDetector()) return;
+  } catch {}
+  try {
+    if (await startZxingDetector()) return;
+  } catch {}
+  setStatus("Kamera ochildi. Avtomatik kod o'qish mavjud emas; kodni qo'lda ham kiritishingiz mumkin.");
+  starting = false;
 }
 
 $("startBtn").addEventListener("click", () => {
@@ -116,4 +221,20 @@ newProductForm.addEventListener("submit", async (event) => {
   }
 });
 
-ensureLogin().catch(() => location.href = "/");
+window.addEventListener("pagehide", () => {
+  stopCamera();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopCamera();
+    return;
+  }
+  startCamera().catch((error) => setStatus(cameraErrorMessage(error)));
+});
+
+window.addEventListener("pageshow", () => {
+  startCamera().catch((error) => setStatus(cameraErrorMessage(error)));
+});
+
+startCamera().catch((error) => setStatus(cameraErrorMessage(error)));
