@@ -22,6 +22,8 @@ CUSTOM_EMOJI_IDS = {
     "top_sales": "5409008750893734809",
     "balance": "5325971446625758812",
     "add_product": "5440410042773824003",
+    "scan": "6269389652034065880",
+    "enter": "5470060791883374114"
 }
 CUSTOM_EMOJI_FALLBACKS = {
     "daily": "📝",
@@ -29,11 +31,18 @@ CUSTOM_EMOJI_FALLBACKS = {
     "top_sales": "🏆",
     "balance": "👤",
     "add_product": "➕",
+    "scan": "🔍",
+    "enter": "✅"
 }
 
 USER_STATE: dict[str, str] = {}
+FIREBASE_SCOPES = (
+    "https://www.googleapis.com/auth/firebase.database",
+    "https://www.googleapis.com/auth/userinfo.email",
+)
+_FIREBASE_CREDENTIALS: Any = None
 
-SCAN_URL = "https://dokon-pi.vercel.app/scan"
+SCAN_URL = "https://t.me/dbdatabaseofmarketbot/scan"
 
 
 def load_env(path: Path = ROOT / ".env") -> None:
@@ -44,7 +53,7 @@ def load_env(path: Path = ROOT / ".env") -> None:
         if not line or line.startswith("#") or "=" not in line: 
             continue
         key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+        os.environ.setdefault(key.strip().lstrip("\ufeff"), value.strip().strip("\"'"))
 
 
 def money(value: float) -> str:
@@ -73,9 +82,51 @@ def firebase_url(path_part: str = "") -> str:
     return f"{database_url}/{clean_path}.json{query}"
 
 
+def firebase_access_token() -> str:
+    global _FIREBASE_CREDENTIALS
+
+    configured_token = os.environ.get("FIREBASE_AUTH_TOKEN", "").strip()
+    if configured_token:
+        return configured_token
+    if os.environ.get("FIREBASE_DATABASE_SECRET", "").strip():
+        return ""
+    if os.environ.get("FIREBASE_ALLOW_UNAUTHENTICATED", "").strip().lower() == "true":
+        return ""
+
+    project_id = os.environ.get("FIREBASE_PROJECT_ID", "").strip()
+    client_email = os.environ.get("FIREBASE_CLIENT_EMAIL", "").strip()
+    private_key = os.environ.get("FIREBASE_PRIVATE_KEY", "").strip().replace("\\n", "\n")
+    if not (project_id and client_email and private_key):
+        raise RuntimeError(
+            "Firebase service account sozlanmagan: FIREBASE_PROJECT_ID, "
+            "FIREBASE_CLIENT_EMAIL va FIREBASE_PRIVATE_KEY talab qilinadi"
+        )
+
+    try:
+        from google.auth.transport.requests import Request
+        from google.oauth2 import service_account
+    except ImportError as exc:
+        raise RuntimeError("Firebase OAuth uchun 'pip install -r requirements.txt' buyrug'ini bajaring") from exc
+
+    if _FIREBASE_CREDENTIALS is None:
+        _FIREBASE_CREDENTIALS = service_account.Credentials.from_service_account_info(
+            {
+                "type": "service_account",
+                "project_id": project_id,
+                "private_key": private_key,
+                "client_email": client_email,
+                "token_uri": "https://oauth2.googleapis.com/token",
+            },
+            scopes=FIREBASE_SCOPES,
+        )
+    if not _FIREBASE_CREDENTIALS.valid:
+        _FIREBASE_CREDENTIALS.refresh(Request())
+    return str(_FIREBASE_CREDENTIALS.token or "")
+
+
 def firebase_load_db() -> dict[str, Any] | None:
     request = urllib.request.Request(firebase_url(), method="GET")
-    token = os.environ.get("FIREBASE_AUTH_TOKEN", "").strip()
+    token = firebase_access_token()
     if token:
         request.add_header("Authorization", f"Bearer {token}")
     try:
@@ -88,13 +139,31 @@ def firebase_load_db() -> dict[str, Any] | None:
         raise RuntimeError(f"Firebase xato: HTTP {exc.code}. {details}") from exc
 
 
+def firebase_save_db(db: dict[str, Any]) -> None:
+    payload = json.dumps(db, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    request = urllib.request.Request(
+        firebase_url(),
+        data=payload,
+        headers={"Content-Type": "application/json; charset=utf-8"},
+        method="PUT",
+    )
+    token = firebase_access_token()
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            if response.status >= 400:
+                raise RuntimeError(f"Firebase xato: HTTP {response.status}")
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Firebase xato: HTTP {exc.code}. {details}") from exc
+
+
 def load_db(path: Path) -> dict[str, Any]:
     if firebase_enabled():
         db = firebase_load_db()
         if db is not None:
             return db
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
         raise FileNotFoundError("Firebase Realtime Database ichida DB topilmadi")
     if not path.exists():
         raise FileNotFoundError(f"DB topilmadi: {path}")
@@ -287,12 +356,14 @@ def telegram_send_add_product_menu(token: str, chat_id: str) -> None:
         "inline_keyboard": [
             [
                 {
-                    "text": "✏️ Qo'lda kiritish",
+                    "text": "Qo'lda kiritish",
                     "callback_data": "add_product_manual",
+                    "icon_custom_emoji_id": CUSTOM_EMOJI_IDS["enter"],
                 },
                 {
-                    "text": "📷 Skanerlash",
-                    "web_app": {"url": SCAN_URL},
+                    "text": "Skanerlash",
+                    "url": SCAN_URL,
+                    "icon_custom_emoji_id": CUSTOM_EMOJI_IDS["scan"],
                 },
             ],
             [
@@ -440,22 +511,11 @@ def handle_bot_update(token: str, update: dict[str, Any], db_path: Path) -> None
             telegram_answer_callback(token, callback_id)
             return
         print(f"Tugma bosildi: action={action}, chat_id={chat_id}", flush=True)
-        db = load_db(db_path)
-        day = date.today().isoformat()
-
-        if action == "daily":
-            text = build_message(db, day)
-        elif action == "low_stock":
-            text = build_low_stock_message(db)
-        elif action == "top_sales":
-            text = build_top_sales_message(db, day)
-        elif action == "balance":
-            text = build_balance_message(db)
-        elif action == "add_product":
+        if action == "add_product":
             telegram_answer_callback(token, callback_id)
             telegram_send_add_product_menu(token, chat_id)
             return
-        elif action == "add_product_manual":
+        if action == "add_product_manual":
             USER_STATE[chat_id] = "waiting_barcode"
             telegram_answer_callback(token, callback_id)
             telegram_send(
@@ -464,11 +524,22 @@ def handle_bot_update(token: str, update: dict[str, Any], db_path: Path) -> None
                 "✏️ <b>Shtrix kodni kiriting:</b>\n\nTovarning shtrix kodini yozing va yuboring.",
             )
             return
-        elif action == "back_to_menu":
+        if action == "back_to_menu":
             USER_STATE.pop(chat_id, None)
             telegram_answer_callback(token, callback_id)
             telegram_send_menu(token, chat_id)
             return
+
+        db = load_db(db_path)
+        day = date.today().isoformat()
+        if action == "daily":
+            text = build_message(db, day)
+        elif action == "low_stock":
+            text = build_low_stock_message(db)
+        elif action == "top_sales":
+            text = build_top_sales_message(db, day)
+        elif action == "balance":
+            text = build_balance_message(db)
         else:
             text = "Noma'lum buyruq."
 

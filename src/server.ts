@@ -34,7 +34,7 @@ function loadEnvFile(filePath: string) {
     if (!trimmed || trimmed.startsWith("#")) continue;
     const eq = trimmed.indexOf("=");
     if (eq < 0) continue;
-    const key = trimmed.slice(0, eq).trim();
+    const key = trimmed.slice(0, eq).trim().replace(/^\uFEFF/, "");
     const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, "");
     if (key && process.env[key] === undefined) process.env[key] = value;
   }
@@ -220,6 +220,9 @@ async function saveFirebaseDb(db: Db) {
 
 async function loadDb(): Promise<Db> {
   await mkdir(dataDir, { recursive: true });
+  if (isVercel && !firebaseEnabled) {
+    throw httpError(503, "Firebase sozlanmagan: Vercel Environment Variables ichida service account qiymatlarini kiriting");
+  }
   if (firebaseEnabled) {
     const firebaseDb = await loadFirebaseDb();
     if (!firebaseDb) {
@@ -282,6 +285,9 @@ async function loadDb(): Promise<Db> {
 
 async function saveDb(db: Db) {
   dbWriteQueue = dbWriteQueue.catch(() => undefined).then(async () => {
+    if (isVercel && !firebaseEnabled) {
+      throw httpError(503, "Firebase sozlanmagan: Vercel vaqtinchalik /tmp bazasiga yozish bloklandi");
+    }
     await ensureDailyBackup(db);
     if (firebaseEnabled) {
       await saveFirebaseDb(db);

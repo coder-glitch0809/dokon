@@ -42,6 +42,15 @@ Production muhitida `INITIAL_ADMIN_PASSWORD` majburiy. Developmentda parol beril
 
 ## Telegram admin bot
 
+Bot dependencylarini o'rnating:
+
+```bash
+pip install -r requirements.txt
+```
+
+Bot Node server bilan bir xil `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` va
+`FIREBASE_PRIVATE_KEY` service-account sozlamalarini `.env`dan ishlatadi.
+
 Kunlik hisobotni qo'lda olish uchun bot polling rejimini ishga tushiring:
 
 ```bash
