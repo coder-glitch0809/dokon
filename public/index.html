@@ -49,7 +49,7 @@
       <select class="mobile-nav" id="mobileNav"></select>
       <div class="topbar">
         <div>
-          <h2 id="pageTitle">Dashboard</h2>
+          <h2 id="pageTitle">Hisobotlar</h2>
           <p class="hint" id="pageSub">Kunlik holat va balanslar.</p>
         </div>
         <div class="top-actions">
@@ -62,7 +62,7 @@
         </div>
       </div>
 
-      <section class="view active" id="dashboardView">
+      <section class="view active" id="reportsView">
         <div class="grid kpi-grid" id="kpiGrid"></div>
         <div class="grid monitor-grid gap-top" id="monitorGrid"></div>
         <div class="grid two-col gap-top">
@@ -97,7 +97,17 @@
         </div>
       </section>
 
-      <section class="view" id="inventoryView">
+      <section class="view" id="productsView">
+        <div class="card">
+          <div class="card-pad section-head">
+            <div><h3>Barcha tovarlar</h3><p>Tizimga kiritilgan tovarlar, narxlar va joriy qoldiq.</p></div>
+            <span class="badge blue">Tovarlar bazasi</span>
+          </div>
+          <div class="table-wrap"><table id="productsTable"></table></div>
+        </div>
+      </section>
+
+      <section class="view" id="warehouseView">
         <div class="grid two-col">
           <form class="card card-pad" id="purchaseForm">
             <div class="section-head"><div><h3>Mahsulot kirimi</h3><p>Nima keldi, qancha keldi va tannarx.</p></div></div>
@@ -118,9 +128,33 @@
             </div>
             <button class="primary-btn" type="submit">Kirim qo'shish</button>
           </form>
+          <div class="card card-pad">
+            <div class="section-head"><div><h3>Ombor xizmatlari</h3><p>Kerakli amaliyotni tanlang va ma'lumotlarni kiriting.</p></div></div>
+            <div class="service-grid">
+              <button class="service-card" type="button" data-warehouse-action="dispatch"><strong>Yetkazib beruvchiga jo'natish</strong><span>Tovarni ombordan chiqarish</span></button>
+              <button class="service-card" type="button" data-warehouse-action="inventory"><strong>Inventarizatsiya</strong><span>Haqiqiy qoldiqni kiritish</span></button>
+              <button class="service-card" type="button" data-warehouse-action="release"><strong>Reliz</strong><span>Tovarni muomalaga chiqarish</span></button>
+              <button class="service-card" type="button" data-warehouse-action="reprice"><strong>Qayta narxlash</strong><span>Yangi sotuv narxini belgilash</span></button>
+              <button class="service-card" type="button" data-warehouse-action="adjust"><strong>Qoldiqni to'g'irlash</strong><span>Hisobdagi qoldiqni tuzatish</span></button>
+              <button class="service-card" type="button" data-warehouse-action="reserve"><strong>Bron qilib qo'yish</strong><span>Tovar miqdorini mijoz uchun band qilish</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="grid two-col gap-top">
+          <form class="card card-pad" id="warehouseActionForm">
+            <div class="section-head"><div><h3>Ombor amaliyoti</h3><p>Tanlangan xizmat bo'yicha o'zgarish saqlanadi.</p></div></div>
+            <div class="form-grid">
+              <div class="field"><label>Amaliyot</label><select name="action" id="warehouseAction"><option value="dispatch">Yetkazib beruvchiga jo'natish</option><option value="inventory">Inventarizatsiya</option><option value="release">Reliz</option><option value="reprice">Qayta narxlash</option><option value="adjust">Qoldiqni to'g'irlash</option><option value="reserve">Bron qilib qo'yish</option></select></div>
+              <div class="field"><label>Tovar</label><select name="productId" id="warehouseProduct" required></select></div>
+              <div class="field"><label>Miqdor / yangi qoldiq</label><input name="qty" type="number" min="0" step="0.001" required></div>
+              <div class="field"><label>Yangi narx (qayta narxlash uchun)</label><input name="newPrice" type="number" min="0" step="100"></div>
+              <div class="field full"><label>Izoh</label><input name="note" maxlength="300"></div>
+            </div>
+            <button class="primary-btn" type="submit">Amaliyotni saqlash</button>
+          </form>
           <div class="card">
-            <div class="card-pad section-head"><div><h3>Ombor qoldig'i</h3><p>Kam qolgan mahsulotlar belgilanadi.</p></div></div>
-            <div class="table-wrap"><table id="stockTable"></table></div>
+            <div class="card-pad section-head"><div><h3>Ombor amaliyotlari tarixi</h3><p>Qabuldan tashqari barcha ombor harakatlari.</p></div></div>
+            <div class="table-wrap"><table id="warehouseActionsTable"></table></div>
           </div>
         </div>
       </section>
@@ -209,7 +243,7 @@
         </div>
       </section>
 
-      <section class="view" id="suppliersView">
+      <section class="view" id="financeView">
         <div class="grid two-col">
           <form class="card card-pad" id="supplierForm">
             <div class="section-head"><div><h3>Ta'minotchi qo'shish</h3><p>Yetkazib beruvchi va boshlang'ich qarz.</p></div></div>
@@ -234,7 +268,7 @@
         </div>
         <div class="grid two-col gap-top">
           <div class="card">
-            <div class="card-pad section-head"><div><h3>Ta'minotchilar</h3><p>Qarz va kontaktlar.</p></div></div>
+            <div class="card-pad section-head"><div><h3>Ta'minotchi mablag'lari hisoboti</h3><p>Ta'minotchilar kesimida qarz va mablag'lar.</p></div></div>
             <div class="table-wrap"><table id="suppliersTable"></table></div>
           </div>
           <div class="card">
@@ -267,10 +301,10 @@
         </div>
       </section>
 
-      <section class="view" id="workersView">
+      <section class="view" id="employeesView">
         <div class="grid two-col">
           <form class="card card-pad" id="workerForm">
-            <div class="section-head"><div><h3>Ishchilar va rollar</h3><p>Login, parol va ruxsat darajalari.</p></div></div>
+            <div class="section-head"><div><h3>Xodim kiritish</h3><p>Yangi xodim uchun login, parol va ruxsat darajasi.</p></div></div>
             <div class="form-grid">
               <div class="field"><label>Ism</label><input name="name" required></div>
               <div class="field"><label>Login</label><input name="login" required></div>
@@ -288,7 +322,28 @@
         </div>
       </section>
 
-      <section class="view" id="profileView">
+      <section class="view" id="customersView">
+        <div class="card">
+          <div class="card-pad section-head"><div><h3>Onlayn buyurtma bergan mijozlar</h3><p>Sayt va onlayn kanallardan tushgan buyurtmalar shu yerda ko'rinadi.</p></div><span class="badge good">Onlayn buyurtmalar</span></div>
+          <div class="table-wrap"><table id="customersTable"></table></div>
+        </div>
+      </section>
+
+      <section class="view" id="settingsView">
+        <div class="settings-grid">
+          <button class="setting-card" type="button"><strong>Asosiy sozlamalar</strong><span>Do'kon va tizim ma'lumotlari</span></button>
+          <button class="setting-card" type="button"><strong>Qo'shimcha sozlamalar</strong><span>Kengaytirilgan parametrlar</span></button>
+          <button class="setting-card" type="button"><strong>Narx belgilarini chop etish</strong><span>Tovar yorliqlari va shablonlar</span></button>
+          <button class="setting-card" type="button"><strong>Telegram botga bildirishnoma</strong><span>Bot va xabarnoma sozlamalari</span></button>
+          <button class="setting-card" type="button"><strong>Narx turlari</strong><span>Chakana, ulgurji va maxsus narxlar</span></button>
+          <button class="setting-card" type="button"><strong>Kassa cheklari</strong><span>Chek ko'rinishi va rekvizitlar</span></button>
+          <button class="setting-card" type="button"><strong>Promo aksiyalar</strong><span>Chegirma va promo qoidalari</span></button>
+          <button class="setting-card" type="button"><strong>POS qurilmalar</strong><span>Kassa va terminal qurilmalari</span></button>
+          <button class="setting-card" type="button"><strong>Filiallar</strong><span>Savdo nuqtalarini boshqarish</span></button>
+          <button class="setting-card" type="button"><strong>To'lov turlari</strong><span>Naqd, karta va boshqa usullar</span></button>
+          <button class="setting-card" type="button"><strong>O'lchov birliklari</strong><span>Dona, kg, litr va boshqa birliklar</span></button>
+          <button class="setting-card" type="button"><strong>Hisoblar va sessiyalar</strong><span>Foydalanuvchi hisoblari va faol kirishlar</span></button>
+        </div>
         <div class="grid two-col">
           <form class="card card-pad" id="passwordForm">
             <div class="section-head"><div><h3>Parolni o'zgartirish</h3><p>Har bir foydalanuvchi o'z parolini yangilashi mumkin.</p></div></div>

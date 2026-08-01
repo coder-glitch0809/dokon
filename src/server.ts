@@ -14,9 +14,11 @@ type Expense = { id: string; title: string; category: string; amount: number; ac
 type Purchase = { id: string; name: string; category: string; unit: string; qty: number; cost: number; price: number; account: string; supplier: string; date: string; originalCost?: number; originalPrice?: number; currency?: string; usdRate?: number };
 type Supplier = { id: string; name: string; phone: string; note: string; balance: number; createdAt: string };
 type SupplierPayment = { id: string; supplierId: string; amount: number; account: string; note: string; date: string };
+type InventoryAction = { id: string; action: string; actionLabel: string; productId: string; productName: string; qty: number; unit: string; note: string; date: string; newPrice?: number };
+type OnlineOrder = { id: string; customer: string; phone: string; items: string; total: number; status: string; date: string };
 type Worker = { id: string; name: string; login: string; role: Role; salary: number; phone: string; passwordHash: string; passwordSalt: string; mustChangePassword?: boolean };
 type ArchiveEntry = { id: string; date: string; type: string; title: string; amount: number; direction: "plus" | "minus" | "neutral"; payload: unknown; userId?: string };
-type Db = { accounts: Account[]; products: Product[]; breads: Bread[]; sales: Sale[]; expenses: Expense[]; purchases: Purchase[]; suppliers: Supplier[]; supplierPayments: SupplierPayment[]; workers: Worker[]; archive: ArchiveEntry[]; settings: { usdRate: number; usdRateDate: string; lastBackupDate?: string } };
+type Db = { accounts: Account[]; products: Product[]; breads: Bread[]; sales: Sale[]; expenses: Expense[]; purchases: Purchase[]; suppliers: Supplier[]; supplierPayments: SupplierPayment[]; inventoryActions: InventoryAction[]; onlineOrders: OnlineOrder[]; workers: Worker[]; archive: ArchiveEntry[]; settings: { usdRate: number; usdRateDate: string; lastBackupDate?: string } };
 type Session = { id: string; userId: string; csrfToken: string; expiresAt: number };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -142,6 +144,8 @@ function seedDb(): Db {
     purchases: [],
     suppliers: [],
     supplierPayments: [],
+    inventoryActions: [],
+    onlineOrders: [],
     archive: [],
     settings: { usdRate: 12600, usdRateDate: today() },
     workers: [seedWorker(admin.name, admin.login, admin.password, admin.role, admin.salary, false)]
@@ -234,6 +238,8 @@ async function loadDb(): Promise<Db> {
     db.archive ||= [];
     db.suppliers ||= [];
     db.supplierPayments ||= [];
+    db.inventoryActions ||= [];
+    db.onlineOrders ||= [];
     db.settings ||= { usdRate: 12600, usdRateDate: today() };
     db.accounts ||= [];
     db.products ||= [];
@@ -264,6 +270,8 @@ async function loadDb(): Promise<Db> {
   db.archive ||= [];
   db.suppliers ||= [];
   db.supplierPayments ||= [];
+  db.inventoryActions ||= [];
+  db.onlineOrders ||= [];
   db.settings ||= { usdRate: 12600, usdRateDate: today() };
   let migrated = false;
   for (const worker of db.workers) {
@@ -513,6 +521,8 @@ function visibleState(db: Db, user: Worker) {
     purchases: canView(user, "inventory") || canView(user, "dashboard") ? db.purchases : [],
     suppliers: canView(user, "suppliers") || canView(user, "inventory") ? db.suppliers : [],
     supplierPayments: canView(user, "suppliers") ? db.supplierPayments : [],
+    inventoryActions: canView(user, "inventory") ? db.inventoryActions : [],
+    onlineOrders: canView(user, "dashboard") ? db.onlineOrders : [],
     workers: canView(user, "workers") ? db.workers.map(publicWorker) : [],
     archive: canView(user, "archive") ? db.archive : [],
     settings: db.settings,
@@ -782,6 +792,50 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     audit(db, user, { type: "product", title: `Barcode mahsulot qo'shildi: ${product.name}`, amount: product.qty * product.cost, direction: "neutral", payload: product });
     await saveDb(db);
     return send(res, 201, { ok: true, product: publicProduct(product) });
+  }
+
+  if (url.pathname === "/api/inventory-actions" && req.method === "POST") {
+    const { db, user } = await requireUser(req, ["superadmin", "admin", "manager"]);
+    requirePasswordReady(user);
+    const body = await readJson(req) as Record<string, unknown>;
+    const action = cleanString(body.action, 30);
+    const labels: Record<string, string> = {
+      dispatch: "Yetkazib beruvchiga jo'natish",
+      inventory: "Inventarizatsiya",
+      release: "Reliz",
+      reprice: "Qayta narxlash",
+      adjust: "Qoldiqni to'g'irlash",
+      reserve: "Bron qilib qo'yish"
+    };
+    if (!labels[action]) throw httpError(400, "Ombor amaliyoti noto'g'ri tanlandi");
+    const product = db.products.find((item) => item.id === cleanString(body.productId, 80));
+    if (!product) throw httpError(400, "Tovar topilmadi");
+    const qty = positive(body.qty, "Miqdor");
+    let newPrice: number | undefined;
+
+    if (action === "dispatch" || action === "reserve") {
+      if (qty <= 0) throw httpError(400, "Miqdor 0 dan katta bo'lishi kerak");
+      if (product.qty < qty) throw httpError(409, "Ombordagi qoldiq yetarli emas");
+      product.qty -= qty;
+    } else if (action === "release") {
+      if (qty <= 0) throw httpError(400, "Miqdor 0 dan katta bo'lishi kerak");
+      product.qty += qty;
+    } else if (action === "inventory" || action === "adjust") {
+      product.qty = qty;
+    } else if (action === "reprice") {
+      newPrice = positive(body.newPrice, "Yangi narx", 1);
+      product.price = newPrice;
+    }
+
+    const entry: InventoryAction = {
+      id: id("inv"), action, actionLabel: labels[action], productId: product.id,
+      productName: product.name, qty, unit: product.unit, note: cleanString(body.note, 300),
+      date: new Date().toISOString(), ...(newPrice === undefined ? {} : { newPrice })
+    };
+    db.inventoryActions.push(entry);
+    audit(db, user, { type: "inventory_action", title: `${labels[action]}: ${product.name}`, amount: qty, direction: "neutral", payload: entry });
+    await saveDb(db);
+    return send(res, 201, { ok: true });
   }
 
   if (url.pathname === "/api/sales" && req.method === "POST") {

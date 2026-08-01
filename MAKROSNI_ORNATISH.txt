@@ -1,0 +1,49 @@
+ZAMON TAROZI YORLIQ MAKROSI
+============================
+
+Natija: har bir mahsulot alohida 5,6 x 3,8 sm sahifaga chiqariladi.
+Maydonlar:
+  Nomi  = 2-ustun
+  Narxi = 4-ustun
+  PLU   = 8-ustun
+  Kodi  = 1-ustun
+
+Misol:
+1;Mosh;;21000;0;0;0;1;0;0;;01.01.01;0;7;11;0;01.01.2001
+
+Natija:
+Nomi: Mosh
+Narxi: 21 000 so'm
+PLU: 1    Kodi: 1
+
+O'RNATISH
+---------
+1. Word'ni oching.
+2. Bo'sh hujjat yarating.
+3. Alt + F11 tugmalarini bosing.
+4. VBA oynasida File > Import File... ni tanlang.
+5. Zamon_Tarozi_Yorliq_Makrosi.bas faylini tanlang.
+6. Word'ga qayting va hujjatni "Word Macro-Enabled Document (*.docm)"
+   formatida saqlang. Masalan: Tarozi_Yorliq.docm
+7. Hujjatni yoping.
+
+ISHLATISH
+---------
+Tarozi_Yorliq.docm faylini oching va "Enable Content" tugmasini bosing.
+Agar Downloads papkasida scale.txt bo'lsa, makros uni avtomatik o'qiydi va
+tayyor yorliqlarni yangi Word hujjatida yaratadi. scale.txt topilmasa,
+TXT tanlash oynasi chiqadi.
+
+Agar avtomatik oyna chiqmasa:
+Alt + F8 > TaroziYorliqlariniYarat > Run.
+
+ESLATMA
+-------
+- TXT fayldagi har bir mahsulot alohida satrda bo'lishi kerak.
+- Makros "1:Mosh;;21000..." ko'rinishidagi birinchi ikki maydon orasidagi
+  ikki nuqtani ham avtomatik tuzatadi.
+- Sahifa 56 x 38 mm, barcha chet bo'shliqlari 1 mm (0,1 sm).
+- Chop etishda printer sozlamasida qog'oz o'lchamini 56 x 38 mm qiling va
+  Scale/Scaling qiymatini 100% (Actual size) qilib qo'ying.
+- Tekshirilgan C:\Users\Аббосбек\Downloads\scale.txt faylida 123 ta mahsulot bor.
+- Haqiqiy fayl bo'yicha ustunlar: Kodi=1, Nomi=2, Narxi=4, PLU=8.

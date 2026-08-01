@@ -2,22 +2,18 @@
 const number = new Intl.NumberFormat("uz-UZ", { maximumFractionDigits: 3 });
 
 const navItems = [
-  ["dashboard", "Dashboard", "Kunlik, oylik va umumiy foyda nazorati."],
-  ["inventory", "Ombor", "Kirim, qoldiq va yetishmovchilik."],
-  ["sales", "Savdo", "Sotuv, tannarx va foyda."],
-  ["bakery", "Nonvoyxona", "Un, qop, non ishlab chiqarish va sotuv."],
-  ["expenses", "Rasxodlar", "Minus harakatlar va ochilish xarajatlari."],
-  ["accounts", "Karta va hisob", "Kassa, karta va bank qoldiqlari."],
-  ["suppliers", "Ta'minotchilar", "Yetkazib beruvchilar, qarz va to'lovlar."],
-  ["analytics", "Analitika", "Savdo trendi va mahsulot reytinglari."],
-  ["workers", "Ishchilar", "Login, parol va rollar."],
-  ["profile", "Profil", "Parol va xavfsizlik."],
-  ["archive", "Arxiv", "Audit va saqlangan tarix."]
+  ["reports", "Hisobotlar", "Savdo, foyda va qoldiqlar bo'yicha hisobotlar.", "dashboard"],
+  ["products", "Tovarlar", "Barcha kiritilgan tovarlar ro'yxati.", "inventory"],
+  ["warehouse", "Ombor", "Qabul, jo'natish va ombor amaliyotlari.", "inventory"],
+  ["finance", "Moliya", "Ta'minotchilar to'lovi va mablag'lar hisoboti.", "suppliers"],
+  ["employees", "Xodimlar", "Xodimlarni kiritish va boshqarish.", "workers"],
+  ["customers", "Mijozlar", "Onlayn buyurtma bergan mijozlar.", "dashboard"],
+  ["settings", "Sozlamalar", "Tizim, savdo va qurilmalar sozlamalari.", "profile"]
 ];
 
 let state = null;
 let session = null;
-let activeView = "dashboard";
+let activeView = "reports";
 const API_ORIGIN = "";
 
 const $ = (id) => document.getElementById(id);
@@ -68,7 +64,9 @@ async function refresh() {
   $("app").style.display = "grid";
   resetIdleTimer();
   notifyLowStock();
-  activeView = state.allowedViews.includes(activeView) ? activeView : state.allowedViews[0];
+  activeView = navItems.some(([id, , , permission]) => id === activeView && state.allowedViews.includes(permission))
+    ? activeView
+    : navItems.find(([, , , permission]) => state.allowedViews.includes(permission))?.[0] || "reports";
   showView(activeView);
 }
 
@@ -120,7 +118,7 @@ function renderNav() {
   const mobile = $("mobileNav");
   side.innerHTML = "";
   mobile.innerHTML = "";
-  navItems.filter(([id]) => state.allowedViews.includes(id)).forEach(([id, title]) => {
+  navItems.filter(([, , , permission]) => state.allowedViews.includes(permission)).forEach(([id, title]) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = title;
@@ -136,7 +134,8 @@ function renderNav() {
 }
 
 function showView(id) {
-  activeView = state.allowedViews.includes(id) ? id : state.allowedViews[0];
+  const requested = navItems.find(([key, , , permission]) => key === id && state.allowedViews.includes(permission));
+  activeView = requested?.[0] || navItems.find(([, , , permission]) => state.allowedViews.includes(permission))?.[0] || "reports";
   document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
   $(`${activeView}View`)?.classList.add("active");
   const item = navItems.find(([key]) => key === activeView);
@@ -162,6 +161,8 @@ function render() {
   renderSuppliers();
   renderAnalytics();
   renderWorkers();
+  renderCustomers();
+  renderWarehouseActions();
   renderArchive();
   renderSecurity();
   $("userPill").textContent = `${session.user.name} · ${session.user.role}`;
@@ -225,9 +226,24 @@ function renderDashboard() {
 }
 
 function renderStock() {
-  table($("stockTable"), ["Mahsulot", "Kategoriya", "Qoldiq", "Min", "Tannarx", "Sotuv", "Qiymat", "Holat"], state.products.map((p) => [
-    esc(p.name), esc(p.category), fmtQty(p.qty, p.unit), fmtQty(p.min || 0, p.unit), fmtMoney(p.cost), fmtMoney(p.price), fmtMoney(p.qty * p.cost),
+  table($("productsTable"), ["Mahsulot", "Barcode", "Kategoriya", "Qoldiq", "Min", "Tannarx", "Sotuv", "Qiymat", "Holat"], state.products.map((p) => [
+    esc(p.name), esc(p.barcode || "-"), esc(p.category), fmtQty(p.qty, p.unit), fmtQty(p.min || 0, p.unit), fmtMoney(p.cost), fmtMoney(p.price), fmtMoney(p.qty * p.cost),
     p.qty <= (p.min || 5) ? `<span class="badge bad">Yetishmayapti</span>` : `<span class="badge good">Yetarli</span>`
+  ]));
+}
+
+function renderCustomers() {
+  const orders = state.onlineOrders || [];
+  table($("customersTable"), ["Sana", "Mijoz", "Telefon", "Buyurtma", "Summa", "Holat"], orders.map((o) => [
+    esc(o.date), esc(o.customer), esc(o.phone || "-"), esc(o.items || "-"), fmtMoney(o.total), `<span class="badge blue">${esc(o.status || "Yangi")}</span>`
+  ]));
+}
+
+function renderWarehouseActions() {
+  const options = state.products.map((p) => `<option value="${esc(p.id)}">${esc(p.name)} — ${fmtQty(p.qty, p.unit)}</option>`).join("");
+  if ($("warehouseProduct")) $("warehouseProduct").innerHTML = options || `<option value="">Tovar mavjud emas</option>`;
+  table($("warehouseActionsTable"), ["Sana", "Amaliyot", "Tovar", "Miqdor", "Izoh"], (state.inventoryActions || []).slice().reverse().map((a) => [
+    esc(a.date), esc(a.actionLabel || a.action), esc(a.productName), fmtQty(a.qty, a.unit), esc(a.note || "-")
   ]));
 }
 
@@ -359,6 +375,15 @@ $("supplierForm").addEventListener("submit", (e) => { e.preventDefault(); submit
 $("supplierPaymentForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/supplier-payments", e.target); });
 $("workerForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/workers", e.target); });
 $("passwordForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/profile/password", e.target); });
+$("warehouseActionForm").addEventListener("submit", (e) => { e.preventDefault(); submit("/api/inventory-actions", e.target); });
+
+document.querySelectorAll("[data-warehouse-action]").forEach((button) => {
+  button.addEventListener("click", () => {
+    $("warehouseAction").value = button.dataset.warehouseAction;
+    $("warehouseActionForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("warehouseProduct").focus();
+  });
+});
 
 ["click", "keydown", "mousemove", "touchstart"].forEach((eventName) => {
   document.addEventListener(eventName, resetIdleTimer, { passive: true });
